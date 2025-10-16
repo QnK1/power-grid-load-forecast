@@ -1,10 +1,44 @@
 import pandas as pd
 from pathlib import Path
+from sklearn.preprocessing import StandardScaler
+import numpy as np
 
 class DataLoadingParams:
-    country: str = "germany"
-    years: list[str] = ["2015", "2016", "2017", "2018", "2019"]
-    original_freq: str = "15min"
+    """Customizable parameters for the load_data function.
+
+    To use defaults from the original paper, don't modify anything,
+    just use:
+    df, raw_df = load_data(DataLoadingParams())
+
+    To modify parameters, use, for example:
+    params = DataLoadingParams()
+    params.freq = "2h"
+    params.interpolate_empty_values = False
+    df, raw_df = load_data(params)
+
+    Attributes:
+        years: A list of ints indicating which years to include in the data (2015-2024).
+        freq: A frequency string (must be in the pandas freq string format) to resample the data by.
+        prev_load_values: int, how many previous load timestamps to include in each data row.
+                            Use 0 to not include previous load values.
+        prev_day_load_values: tuple[int, int], what window of previous day load timestamps to include in each row,
+                            for example (-1, 1) means that the load on the previous day at the same timestamp
+                            and for 2 neighbouring ones should be included in each data row.
+                            Use (0, 0) to not include previous day load values.
+        prev_load_as_mean: If True, the previous load values are aggreagted to a mean, if False, they are stored separately.
+        prev_day_load_as_mean: If True, the previous day load values are aggregated to a mean, if False, they are stored separately.
+        prev_temp_values: int, how many previous temperature timestamps to include in each data row.
+                            Use 0 to not include previous temperature values.
+        prev_day_temp_values: tuple[int, int], what window of previous day temperature timestamps to include in each row,
+                            for example (-1, 1) means that the temperature on the previous day at the same timestamp
+                            and for 2 neighbouring ones should be included in each data row.
+                            Use (0, 0) to not include previous day temperature values.
+        prev_temp_as_mean: If True, the previous temperature values are aggregated to a mean, if False, they are stored separately.
+        prev_day_temp_as_mean: If True, the previous day temperature values are aggregated to a mean, if False, they are stored separately.
+        interpolate_empty_values: bool, whether rows at the beginning of the DataFrame, that don't have previous values,
+                            should be filled with mean values (True) or dropped (False).
+    """
+    years: list[int] = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
     freq: str = "1h"
     prev_load_values: int = 3
     prev_day_load_values: tuple[int, int] = (-2, 2)
@@ -13,10 +47,21 @@ class DataLoadingParams:
     prev_temp_values: int = 3
     prev_day_temp_values: tuple[int, int] = (-2, 2)
     prev_temp_as_mean: bool = True
-    prev_day_temp_as_mean: bool = True
+    prev_day_temp_as_mean: bool = False
+    interpolate_empty_values: bool = True
     
     
-def load_data(params: DataLoadingParams) -> pd.DataFrame:
+def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """ 
+    Return the data loaded and processed for machine learning.
+
+    :param params: Configuration, see DataLoadingParams documentation.
+    :returns: the DataFrame prepared for machine learning and the "raw" DataFrame, respectively.
+    :rtype: tuple[pd.DataFrame, pd.DataFrame]
+    """
+    if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
+        raise ValueError("only resampling to lower frequencies is supported")
+    
     df = pd.DataFrame()
     
     # load data for all selected years
@@ -33,18 +78,45 @@ def load_data(params: DataLoadingParams) -> pd.DataFrame:
     
     # remove daylight savings related nans
     df = _remove_daylight_savings_nans(df, params)
-        
+
+    # resample data
+    df = _resample(df, params)
+
+    # add previous values
+    df = _get_previous_loads(df, params)
+
+    # add previous day values
+    df = _get_previous_day_loads(df, params)
+
     # get day and hour numbers
     df = _get_date_numbers(df, params)
     
-    print(df)
+    # load temperature data
+    df = _get_temperature(df, params)
+
+    # add previous temperature values
+    df = _get_previous_temps(df, params)
+
+    # add previous day temperature values
+    df = _get_previous_day_temps(df, params)
+
+    # handle empty values at the beginning of the dataframe (they could not have previous values added)
+    df = _handle_sliding_window_nans(df, params)
+    
+    raw_df = df.copy()
+
+    # get ml-ready df
+    df = _get_ml_ready_df(df, params)
+
+    return df, raw_df
+
 
 
 def _load_from_raw(df, params):
     for year in params.years:
         df = pd.concat(
             [df, pd.read_csv(Path(__file__).parent.parent.resolve()
-                            / Path(f"data/raw/{params.country}_{year}_{params.original_freq}.csv"))]
+                            / Path(f"data/raw/germany_{year}_15min.csv"))]
         )
     df.reset_index(drop=True, inplace=True)
     
@@ -99,6 +171,154 @@ def _get_date_numbers(df, params):
     return df
 
 
+def _resample(df, params):
+    df = df.set_index("date")
+    df = df.resample(params.freq).sum()
+    df = df.reset_index()
+
+    return df
+
+
+def _get_previous_loads(df, params):
+    if params.prev_load_values <= 0:
+        return df
+    
+    new_cols = []
+    for i in range(1, params.prev_load_values + 1):
+            df[f"load_timestamp_-{i}"] = df["load"].shift(i)
+            new_cols.append(f"load_timestamp_-{i}")
+
+    if params.prev_load_as_mean:
+        df[f"prev_{params.prev_load_values}_timestamps_mean"] = df[new_cols].mean(axis=1)
+        df = df.drop(columns=new_cols)
+
+    return df
+
+
+def _get_previous_day_loads(df, params):
+    if params.prev_day_load_values <= (0, 0):
+        return df
+    
+    freq = df.set_index('date').index.inferred_freq
+    freq = pd.Timedelta(pd.tseries.frequencies.to_offset(freq))
+    fit_count = int(pd.to_timedelta('1D') / freq)
+    
+    new_cols = []
+    for i in range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1):
+            df[f"load_previous_day_timestamp_{i}"] = df["load"].shift(i + fit_count)
+            new_cols.append(f"load_previous_day_timestamp_{i}")
+
+    if params.prev_day_load_as_mean:
+        df[f"prev_day_load_{len(range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1))}_timestamps_mean"] = df[new_cols].mean(axis=1)
+        df = df.drop(columns=new_cols)
+
+    return df
+
+
+def _get_temperature(df, params):
+    tdf = pd.read_csv(Path(__file__).parent.parent.resolve()
+                            / Path(f"data/raw/germany_temperature_2015-2024.csv"))
+    
+    tdf['date'] = pd.to_datetime(tdf['date'])
+
+    tdf = tdf[tdf['date'].dt.year.isin(params.years)]
+
+    tdf = tdf.set_index("date")
+    tdf = tdf.resample(params.freq).mean().interpolate(method='time')
+    tdf = tdf.reset_index()
+
+    tdf.set_index('date')
+    df.set_index('date')
+
+    merged_df = pd.merge(
+        df, 
+        tdf, 
+        left_index=True, 
+        right_index=True, 
+        how='left'
+    )
+
+    merged_df = merged_df.drop(columns=['date_y'], inplace=False)
+    merged_df.rename(columns={"date_x": "date"}, inplace=True)
+
+    return merged_df
+
+
+def _get_previous_temps(df, params):
+    if params.prev_temp_values <= 0:
+        return df
+    
+    new_cols = []
+    for i in range(1, params.prev_temp_values + 1):
+            df[f"temperature_timestamp_-{i}"] = df["temperature"].shift(i)
+            new_cols.append(f"temperature_timestamp_-{i}")
+
+    if params.prev_temp_as_mean:
+        df[f"prev_{params.prev_temp_values}_temperature_timestamps_mean"] = df[new_cols].mean(axis=1)
+        df = df.drop(columns=new_cols)
+
+    return df
+
+
+def _get_previous_day_temps(df, params):
+    if params.prev_day_temp_values == (0, 0):
+        return df
+    
+    freq = df.set_index('date').index.inferred_freq
+    freq = pd.Timedelta(pd.tseries.frequencies.to_offset(freq))
+    fit_count = int(pd.to_timedelta('1D') / freq)
+    
+    new_cols = []
+    for i in range(params.prev_day_temp_values[0], params.prev_day_temp_values[1] + 1):
+            df[f"temperature_previous_day_timestamp_{i}"] = df["temperature"].shift(i + fit_count)
+            new_cols.append(f"temperature_previous_day_timestamp_{i}")
+
+    if params.prev_day_temp_as_mean:
+        df[f"prev_day_temperature_{len(range(params.prev_day_temp_values[0], params.prev_day_temp_values[1] + 1))}_timestamps_mean"] = df[new_cols].mean(axis=1)
+        df = df.drop(columns=new_cols)
+
+    return df
+
+
+def _handle_sliding_window_nans(df, params):
+    if params.interpolate_empty_values:
+        numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
+        
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.set_index('date')
+
+        df[numeric_cols] = df[numeric_cols].interpolate(method='linear', limit_direction='backward')
+
+        df = df.reset_index()
+    else:
+        df = df.dropna()
+    
+
+    return df
+
+
+def _get_ml_ready_df(df, params):
+    df['hour_of_day_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
+    df['hour_of_day_cos'] = np.cos(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
+
+    df['day_of_week_sin'] = np.sin(2 * np.pi * df['day_of_week'] / df['day_of_week'].max())
+    df['day_of_week_cos'] = np.cos(2 * np.pi * df['day_of_week'] / df['day_of_week'].max())
+
+    df['day_of_year_sin'] = np.sin(2 * np.pi * df['day_of_year'] / df['day_of_year'].max())
+    df['day_of_year_cos'] = np.cos(2 * np.pi * df['day_of_year'] / df['day_of_year'].max())
+
+    df.drop(columns=['day_of_year', 'hour_of_day', 'day_of_week'], inplace=True)
+    df.drop(columns=['date'], inplace=True)
+
+    scaler = StandardScaler()
+
+    scaled_values = scaler.fit_transform(df.values)
+
+    df = pd.DataFrame(scaled_values, columns=df.columns, index=df.index)
+
+    return df
 
 if __name__ == "__main__":
+    # params = DataLoadingParams()
+    # params.prev_day_load_as_mean = True
     load_data(DataLoadingParams())
