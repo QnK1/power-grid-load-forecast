@@ -8,5 +8,5 @@ In this project we aim to replicate the results of the paper [Bak, M., & Bieleck
 - `data` - data used for model training and evaluation
 - `doc` - project documentation
 - `eval` - model evaluation
-- `models` - files used to run models
+- `models` - models definition and training
 - `utils` - data preparation and cleanup utilities
