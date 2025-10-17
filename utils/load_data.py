@@ -17,7 +17,6 @@ class DataLoadingParams:
     df, raw_df = load_data(params)
 
     Attributes:
-        years: A list of ints indicating which years to include in the data (2015-2024).
         freq: A frequency string (must be in the pandas freq string format) to resample the data by.
         prev_load_values: int, how many previous load timestamps to include in each data row.
                             Use 0 to not include previous load values.
@@ -38,8 +37,7 @@ class DataLoadingParams:
         interpolate_empty_values: bool, whether rows at the beginning of the DataFrame, that don't have previous values,
                             should be filled with mean values (True) or dropped (False).
     """
-    years: list[int] = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
-    freq: str = "15min"
+    freq: str = "1h"
     prev_load_values: int = 3
     prev_day_load_values: tuple[int, int] = (-2, 2)
     prev_load_as_mean: bool = False
@@ -50,10 +48,10 @@ class DataLoadingParams:
     prev_day_temp_as_mean: bool = False
     interpolate_empty_values: bool = True
     
-    
-def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
+
+def load_training_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     """ 
-    Returns the data loaded and processed for machine learning,
+    Returns the training data (years 2015-2022) loaded and processed for machine learning,
     as well as the data with real values (which is meant to provide access to the real values in case
     they are needed during model evaluation, see load_data_raw for the raw data for data analysis).
 
@@ -61,6 +59,66 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     :returns: The DataFrame prepared for machine learning and a DataFrame with real values.
     :rtype: tuple[pd.DataFrame, pd.DataFrame]
     """
+
+    return _load_data(params, TRAINING_YEARS)
+
+
+def load_test_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """ 
+    Returns the test data (years 2023-2024) loaded and processed for machine learning,
+    as well as the data with real values (which is meant to provide access to the real values in case
+    they are needed during model evaluation, see load_data_raw for the raw data for data analysis).
+
+    :param params: Configuration, see DataLoadingParams documentation.
+    :returns: The DataFrame prepared for machine learning and a DataFrame with real values.
+    :rtype: tuple[pd.DataFrame, pd.DataFrame]
+    """
+
+    return _load_data(params, TEST_YEARS)
+
+
+def load_raw_data() -> pd.DataFrame:
+    """ 
+    Returns the loaded raw data in a format suitable for data analysis (the whole dataset, 2015-2024).
+
+    :param params: Configuration, see DataLoadingParams documentation.
+    :returns: The DataFrame.
+    :rtype: pd.DataFrame
+    """
+    params = DataLoadingParams()
+    params.freq = "15min"
+    years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+    if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
+        raise ValueError("only resampling to lower frequencies is supported")
+
+    df = pd.DataFrame()
+    
+    # load data for all selected years
+    df = _load_from_raw(df, params, years)
+    
+    # drop the unnecessary 'forecast' column
+    df = _drop_columns(df, params)
+    
+    # convert dates to correct type
+    df = _get_dates(df, params)
+    
+    # rename columns
+    df.rename(columns={df.columns[0]: "date", df.columns[1]: "load"}, inplace=True)
+
+    df = _get_temperature_raw(df, params, years)
+
+    return df
+
+
+#######
+# internals
+####### 
+
+TRAINING_YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
+TEST_YEARS = [2023, 2024]
+
+def _load_data(params, years):
     try:
         pd.tseries.frequencies.to_offset(params.freq)
     except ValueError as e:
@@ -68,9 +126,6 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     
     if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
         raise ValueError("only resampling to lower frequencies is supported")
-
-    if any([not isinstance(y, int) for y in params.years]) or any([y not in range(2015, 2025) for y in params.years]):
-        raise ValueError("allowed years are 2015-2024")
     
     if params.prev_load_values < 0 or params.prev_load_values > 240 or params.prev_temp_values < 0 or params.prev_temp_values > 240:
         raise ValueError("allowed values for prev_load_values and prev_temp_values are in the range 0-240")
@@ -82,9 +137,9 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
         raise ValueError("prev_day_temp_values should be a valid range-like tuple")
     
     df = pd.DataFrame()
-    
+
     # load data for all selected years
-    df = _load_from_raw(df, params)
+    df = _load_from_raw(df, params, years)
     
     # drop the unnecessary 'forecast' column
     df = _drop_columns(df, params)
@@ -96,7 +151,7 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     df.rename(columns={df.columns[0]: "date", df.columns[1]: "load"}, inplace=True)
     
     # remove daylight savings related nans
-    df = _remove_daylight_savings_nans(df, params)
+    df = _remove_daylight_savings_nans(df, params, years)
 
     # resample data
     df = _resample(df, params)
@@ -111,7 +166,7 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = _get_date_numbers(df, params)
     
     # load temperature data
-    df = _get_temperature(df, params)
+    df = _get_temperature(df, params, years)
 
     # add previous temperature values
     df = _get_previous_temps(df, params)
@@ -130,41 +185,9 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     return df, real_data_df
 
 
-def load_data_raw() -> pd.DataFrame:
-    """ 
-    Return the loaded raw data in a format suitable for data analysis.
 
-    :param params: Configuration, see DataLoadingParams documentation.
-    :returns: The DataFrame.
-    :rtype: pd.DataFrame
-    """
-    params = DataLoadingParams()
-    params.freq = "15min"
-
-    if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
-        raise ValueError("only resampling to lower frequencies is supported")
-
-    df = pd.DataFrame()
-    
-    # load data for all selected years
-    df = _load_from_raw(df, params)
-    
-    # drop the unnecessary 'forecast' column
-    df = _drop_columns(df, params)
-    
-    # convert dates to correct type
-    df = _get_dates(df, params)
-    
-    # rename columns
-    df.rename(columns={df.columns[0]: "date", df.columns[1]: "load"}, inplace=True)
-
-    df = _get_temperature_raw(df, params)
-
-    return df
-
-
-def _load_from_raw(df, params):
-    for year in params.years:
+def _load_from_raw(df, params, years):
+    for year in years:
         df = pd.concat(
             [df, pd.read_csv(Path(__file__).parent.parent.resolve()
                             / Path(f"data/raw/germany_{year}_15min.csv"))]
@@ -187,9 +210,9 @@ def _get_dates(df, params):
     return df
 
 
-def _remove_daylight_savings_nans(df, params):
+def _remove_daylight_savings_nans(df, params, years):
     dst_start_dates = []
-    for year in params.years:
+    for year in years:
         last_day_of_march = pd.to_datetime(f'{year}-03-31')
         
         dst_day = last_day_of_march - pd.Timedelta(days=(last_day_of_march.dayofweek - 6) % 7)
@@ -266,13 +289,13 @@ def _get_previous_day_loads(df, params):
     return df
 
 
-def _get_temperature_raw(df, params):
+def _get_temperature_raw(df, params, years):
     tdf = pd.read_csv(Path(__file__).parent.parent.resolve()
                             / Path(f"data/raw/germany_temperature_2015-2024.csv"))
     
     tdf['date'] = pd.to_datetime(tdf['date'])
 
-    tdf = tdf[tdf['date'].dt.year.isin(params.years)]
+    tdf = tdf[tdf['date'].dt.year.isin(years)]
 
     tdf = tdf.set_index("date")
     tdf = tdf.resample(params.freq).mean().ffill()
@@ -294,13 +317,13 @@ def _get_temperature_raw(df, params):
     return merged_df
 
 
-def _get_temperature(df, params):
+def _get_temperature(df, params, years):
     tdf = pd.read_csv(Path(__file__).parent.parent.resolve()
                             / Path(f"data/raw/germany_temperature_2015-2024.csv"))
     
     tdf['date'] = pd.to_datetime(tdf['date'])
 
-    tdf = tdf[tdf['date'].dt.year.isin(params.years)]
+    tdf = tdf[tdf['date'].dt.year.isin(years)]
 
     tdf = tdf.set_index("date")
     tdf = tdf.resample(params.freq).mean().interpolate(method='linear', limit_direction="both")
