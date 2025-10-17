@@ -39,7 +39,7 @@ class DataLoadingParams:
                             should be filled with mean values (True) or dropped (False).
     """
     years: list[int] = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
-    freq: str = "1h"
+    freq: str = "15min"
     prev_load_values: int = 3
     prev_day_load_values: tuple[int, int] = (-2, 2)
     prev_load_as_mean: bool = False
@@ -53,14 +53,33 @@ class DataLoadingParams:
     
 def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     """ 
-    Return the data loaded and processed for machine learning.
+    Returns the data loaded and processed for machine learning,
+    as well as the data with real values (which is meant to provide access to the real values in case
+    they are needed during model evaluation, see load_data_raw for the raw data).
 
     :param params: Configuration, see DataLoadingParams documentation.
-    :returns: the DataFrame prepared for machine learning and the "raw" DataFrame, respectively.
+    :returns: The DataFrame prepared for machine learning and a DataFrame with real values.
     :rtype: tuple[pd.DataFrame, pd.DataFrame]
     """
+    try:
+        pd.tseries.frequencies.to_offset(params.freq)
+    except ValueError as e:
+        raise e
+    
     if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
         raise ValueError("only resampling to lower frequencies is supported")
+
+    if any([not isinstance(y, int) for y in params.years]) or any([y not in range(2015, 2025) for y in params.years]):
+        raise ValueError("allowed years are 2015-2024")
+    
+    if params.prev_load_values < 0 or params.prev_load_values > 240 or params.prev_temp_values < 0 or params.prev_temp_values > 240:
+        raise ValueError("allowed values for prev_load_values and prev_temp_values are in the range 0-240")
+    
+    if params.prev_day_load_values[0] > params.prev_day_load_values[1]:
+        raise ValueError("prev_day_load_values should be a valid range-like tuple")
+    
+    if params.prev_day_temp_values[0] > params.prev_day_temp_values[1]:
+        raise ValueError("prev_day_temp_values should be a valid range-like tuple")
     
     df = pd.DataFrame()
     
@@ -102,14 +121,46 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     # handle empty values at the beginning of the dataframe (they could not have previous values added)
     df = _handle_sliding_window_nans(df, params)
-    
-    raw_df = df.copy()
+
+    real_data_df = df.copy()
 
     # get ml-ready df
     df = _get_ml_ready_df(df, params)
 
-    return df, raw_df
+    return df, real_data_df
 
+
+def load_data_raw() -> pd.DataFrame:
+    """ 
+    Return the loaded raw data in a format suitable for data analysis.
+
+    :param params: Configuration, see DataLoadingParams documentation.
+    :returns: The DataFrame.
+    :rtype: pd.DataFrame
+    """
+    params = DataLoadingParams()
+    params.freq = "15min"
+
+    if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
+        raise ValueError("only resampling to lower frequencies is supported")
+
+    df = pd.DataFrame()
+    
+    # load data for all selected years
+    df = _load_from_raw(df, params)
+    
+    # drop the unnecessary 'forecast' column
+    df = _drop_columns(df, params)
+    
+    # convert dates to correct type
+    df = _get_dates(df, params)
+    
+    # rename columns
+    df.rename(columns={df.columns[0]: "date", df.columns[1]: "load"}, inplace=True)
+
+    df = _get_temperature_raw(df, params)
+
+    return df
 
 
 def _load_from_raw(df, params):
@@ -215,7 +266,7 @@ def _get_previous_day_loads(df, params):
     return df
 
 
-def _get_temperature(df, params):
+def _get_temperature_raw(df, params):
     tdf = pd.read_csv(Path(__file__).parent.parent.resolve()
                             / Path(f"data/raw/germany_temperature_2015-2024.csv"))
     
@@ -224,11 +275,11 @@ def _get_temperature(df, params):
     tdf = tdf[tdf['date'].dt.year.isin(params.years)]
 
     tdf = tdf.set_index("date")
-    tdf = tdf.resample(params.freq).mean().interpolate(method='time')
+    tdf = tdf.resample(params.freq).mean().ffill()
     tdf = tdf.reset_index()
 
-    tdf.set_index('date')
-    df.set_index('date')
+    tdf = tdf.set_index('date')
+    df = df.set_index('date')
 
     merged_df = pd.merge(
         df, 
@@ -238,8 +289,36 @@ def _get_temperature(df, params):
         how='left'
     )
 
-    merged_df = merged_df.drop(columns=['date_y'], inplace=False)
-    merged_df.rename(columns={"date_x": "date"}, inplace=True)
+    merged_df.reset_index()
+
+    return merged_df
+
+
+def _get_temperature(df, params):
+    tdf = pd.read_csv(Path(__file__).parent.parent.resolve()
+                            / Path(f"data/raw/germany_temperature_2015-2024.csv"))
+    
+    tdf['date'] = pd.to_datetime(tdf['date'])
+
+    tdf = tdf[tdf['date'].dt.year.isin(params.years)]
+
+    tdf = tdf.set_index("date")
+    tdf = tdf.resample(params.freq).mean().interpolate(method='linear', limit_direction="both")
+    tdf = tdf.reset_index()
+
+    tdf = tdf.set_index('date')
+    df = df.set_index('date')
+
+    merged_df = pd.merge(
+        df, 
+        tdf, 
+        left_index=True, 
+        right_index=True, 
+        how='left'
+    )
+
+    merged_df = merged_df.reset_index()
+    merged_df['temperature'] = merged_df['temperature'].interpolate(method='linear', limit_direction="both")
 
     return merged_df
 
@@ -319,6 +398,8 @@ def _get_ml_ready_df(df, params):
     return df
 
 if __name__ == "__main__":
-    # params = DataLoadingParams()
-    # params.prev_day_load_as_mean = True
-    load_data(DataLoadingParams())
+    params = DataLoadingParams()
+    
+    df = load_data_raw()
+
+    df.to_csv("raw_df.csv")
