@@ -55,7 +55,7 @@ def load_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
     """ 
     Returns the data loaded and processed for machine learning,
     as well as the data with real values (which is meant to provide access to the real values in case
-    they are needed during model evaluation, see load_data_raw for the raw data).
+    they are needed during model evaluation, see load_data_raw for the raw data for data analysis).
 
     :param params: Configuration, see DataLoadingParams documentation.
     :returns: The DataFrame prepared for machine learning and a DataFrame with real values.
@@ -377,6 +377,7 @@ def _handle_sliding_window_nans(df, params):
 
 
 def _get_ml_ready_df(df, params):
+    # apply sine-cosine transformation for cyclical features
     df['hour_of_day_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
     df['hour_of_day_cos'] = np.cos(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
 
@@ -389,17 +390,17 @@ def _get_ml_ready_df(df, params):
     df.drop(columns=['day_of_year', 'hour_of_day', 'day_of_week'], inplace=True)
     df.drop(columns=['date'], inplace=True)
 
+    # standardize other features
     scaler = StandardScaler()
+    cols_to_scale = [col for col in df.columns if col not in 
+                        ['hour_of_day_sin', 'hour_of_day_cos', 'day_of_week_sin', 'day_of_week_cos',
+                            'day_of_year_sin', 'day_of_year_cos']]
 
-    scaled_values = scaler.fit_transform(df.values)
+    scaled_values = scaler.fit_transform(df[cols_to_scale])
 
-    df = pd.DataFrame(scaled_values, columns=df.columns, index=df.index)
+    df_scaled = pd.DataFrame(scaled_values, columns=cols_to_scale)
 
-    return df
+    df_final = df.drop(cols_to_scale, axis=1)
+    df_final = pd.concat([df_final, df_scaled], axis=1)
 
-if __name__ == "__main__":
-    params = DataLoadingParams()
-    
-    df = load_data_raw()
-
-    df.to_csv("raw_df.csv")
+    return df_final
