@@ -77,17 +77,18 @@ def load_test_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFram
     return _load_data(params, TEST_YEARS)
 
 
-def load_raw_data() -> pd.DataFrame:
+def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
     """ 
     Returns the loaded raw data in a format suitable for data analysis (the whole dataset, 2015-2024).
 
-    :param params: Configuration, see DataLoadingParams documentation.
+    :param years: List of years to load.
+    :param months: List of months (0-11) to load (same for every specified year, to get
+                    different months for each year call the function multiple times).
     :returns: The DataFrame.
     :rtype: pd.DataFrame
     """
     params = DataLoadingParams()
     params.freq = "15min"
-    years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
 
     if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
         raise ValueError("only resampling to lower frequencies is supported")
@@ -108,6 +109,9 @@ def load_raw_data() -> pd.DataFrame:
 
     df = _get_temperature_raw(df, params, years)
 
+    # keep only specified months
+    df = _select_months(df, months)
+
     return df
 
 
@@ -115,6 +119,7 @@ def load_raw_data() -> pd.DataFrame:
 # internals
 ####### 
 
+# do not modify, for model evaluation consistency
 TRAINING_YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
 TEST_YEARS = [2023, 2024]
 
@@ -427,3 +432,16 @@ def _get_ml_ready_df(df, params):
     df_final = pd.concat([df_final, df_scaled], axis=1)
 
     return df_final
+
+
+def _select_months(df, months):
+    df = df.reset_index()
+
+    mask = (df['date'].dt.month - 1).isin(months)
+
+    df = df[mask]
+
+    df = df.set_index('date')
+
+    return df
+
