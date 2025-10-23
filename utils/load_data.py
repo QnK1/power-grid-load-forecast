@@ -95,6 +95,9 @@ def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
 
     df = pd.DataFrame()
     
+    if any([y in TEST_YEARS for y in years]):
+        raise ValueError("use of test data in analysis is not allowed")
+
     # load data for all selected years
     df = _load_from_raw(df, params, years)
     
@@ -444,4 +447,3 @@ def _select_months(df, months):
     df = df.set_index('date')
 
     return df
-
