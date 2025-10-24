@@ -2,6 +2,7 @@ import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 import numpy as np
+import tensorflow as tf
 
 class DataLoadingParams:
     """Customizable parameters for the load_data function.
@@ -75,6 +76,23 @@ def load_test_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFram
     """
 
     return _load_data(params, TEST_YEARS)
+
+
+def decode_ml_outputs(to_decode: tf.Tensor | pd.DataFrame, raw: pd.DataFrame):
+    """
+    Returns the power grid loads in MW corresponding to give scaled values.
+    !!! IMPORTANT: raw has to be the same DataFrame returned by load_training_data
+    (the raw DataFrame, NOT the ml-ready one). Otherwise the function will
+    produce random results or throw an exception.
+    
+    :param to_decode: The NN's output or other standardized 'load' value to decode.
+    :param raw: The *raw* DataFrame as returned by load_training_data (always
+    the DataFrame from load_training_data, not load_test_data, as that was used to train the model).
+    """
+    scaler = StandardScaler()
+    scaler.fit(raw[['load']])
+    
+    return scaler.inverse_transform(to_decode)
 
 
 def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
