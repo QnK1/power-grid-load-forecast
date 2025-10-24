@@ -9,4 +9,4 @@ In this project we aim to replicate the results of the paper [Bak, M., & Bieleck
 - `doc` - project documentation
 - `eval` - model evaluation
 - `models` - models definition and training
-- `utils` - data preparation and cleanup utilities
+- `utils` - data preparation, cleanup and other utilities
