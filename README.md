@@ -10,3 +10,7 @@ In this project we aim to replicate the results of the paper [Bak, M., & Bieleck
 - `eval` - model evaluation
 - `models` - models definition and training
 - `utils` - data preparation, cleanup and other utilities
+
+## Running the project
+- Install Python 3.12.4.
+- Run `pip install -r requirements.txt`.
