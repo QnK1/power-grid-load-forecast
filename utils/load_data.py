@@ -1,7 +1,11 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
 import numpy as np
+from tensorflow import Tensor
+
+LOAD_DATA_RANDOM_STATE = int(np.random.default_rng().random() * 100)
 
 class DataLoadingParams:
     """Customizable parameters for the load_data function.
@@ -18,6 +22,7 @@ class DataLoadingParams:
 
     Attributes:
         freq: A frequency string (must be in the pandas freq string format) to resample the data by.
+        shuffle: bool, whether to shuffle data rows (the default is True).
         prev_load_values: int, how many previous load timestamps to include in each data row.
                             Use 0 to not include previous load values.
         prev_day_load_values: tuple[int, int], what window of previous day load timestamps to include in each row,
@@ -38,6 +43,7 @@ class DataLoadingParams:
                             should be filled with mean values (True) or dropped (False).
     """
     freq: str = "1h"
+    shuffle: bool = True
     prev_load_values: int = 3
     prev_day_load_values: tuple[int, int] = (-2, 2)
     prev_load_as_mean: bool = False
@@ -45,7 +51,7 @@ class DataLoadingParams:
     prev_temp_values: int = 3
     prev_day_temp_values: tuple[int, int] = (-2, 2)
     prev_temp_as_mean: bool = True
-    prev_day_temp_as_mean: bool = False
+    prev_day_temp_as_mean: bool = True
     interpolate_empty_values: bool = True
     
 
@@ -77,23 +83,45 @@ def load_test_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFram
     return _load_data(params, TEST_YEARS)
 
 
-def load_raw_data() -> pd.DataFrame:
+def decode_ml_outputs(to_decode: Tensor | pd.DataFrame, raw: pd.DataFrame):
+    """
+    Returns the power grid loads in MW corresponding to give scaled values.
+    !!! IMPORTANT: raw has to be the same DataFrame returned by load_training_data
+    (the raw DataFrame, NOT the ml-ready one). Otherwise the function will
+    produce random results or throw an exception.
+    
+    :param to_decode: The NN's output or other standardized 'load' value to decode.
+    :param raw: The *raw* DataFrame as returned by load_training_data (always
+    the DataFrame from load_training_data, not load_test_data, as that was used to train the model).
+    """
+    scaler = StandardScaler()
+    scaler.fit(raw[['load']])
+    
+    return scaler.inverse_transform(to_decode)
+
+
+def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
     """ 
     Returns the loaded raw data in a format suitable for data analysis (the whole dataset, 2015-2024).
 
-    :param params: Configuration, see DataLoadingParams documentation.
+    :param years: List of years to load.
+    :param months: List of months (0-11) to load (same for every specified year, to get
+                    different months for each year call the function multiple times).
     :returns: The DataFrame.
     :rtype: pd.DataFrame
     """
     params = DataLoadingParams()
     params.freq = "15min"
-    years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+    params.shuffle = False
 
     if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
         raise ValueError("only resampling to lower frequencies is supported")
 
     df = pd.DataFrame()
     
+    if any([y in TEST_YEARS for y in years]):
+        raise ValueError("use of test data in analysis is not allowed")
+
     # load data for all selected years
     df = _load_from_raw(df, params, years)
     
@@ -108,6 +136,9 @@ def load_raw_data() -> pd.DataFrame:
 
     df = _get_temperature_raw(df, params, years)
 
+    # keep only specified months
+    df = _select_months(df, months)
+
     return df
 
 
@@ -115,6 +146,7 @@ def load_raw_data() -> pd.DataFrame:
 # internals
 ####### 
 
+# do not modify, for model evaluation consistency
 TRAINING_YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
 TEST_YEARS = [2023, 2024]
 
@@ -177,10 +209,15 @@ def _load_data(params, years):
     # handle empty values at the beginning of the dataframe (they could not have previous values added)
     df = _handle_sliding_window_nans(df, params)
 
+    # drop temporary 'temperature' column
+    df = df.drop('temperature', axis=1)
+
     real_data_df = df.copy()
+    if params.shuffle:
+        real_data_df = shuffle(real_data_df, random_state=LOAD_DATA_RANDOM_STATE) # shuffle the 'real' df the same way as the ml-ready df
 
     # get ml-ready df
-    df = _get_ml_ready_df(df, params)
+    df = _get_ml_ready_df(df, params, years == TRAINING_YEARS)
 
     return df, real_data_df
 
@@ -270,7 +307,7 @@ def _get_previous_loads(df, params):
 
 
 def _get_previous_day_loads(df, params):
-    if params.prev_day_load_values <= (0, 0):
+    if params.prev_day_load_values == (0, 0):
         return df
     
     freq = df.set_index('date').index.inferred_freq
@@ -399,7 +436,7 @@ def _handle_sliding_window_nans(df, params):
     return df
 
 
-def _get_ml_ready_df(df, params):
+def _get_ml_ready_df(df, params, is_training_data):
     # apply sine-cosine transformation for cyclical features
     df['hour_of_day_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
     df['hour_of_day_cos'] = np.cos(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
@@ -411,19 +448,45 @@ def _get_ml_ready_df(df, params):
     df['day_of_year_cos'] = np.cos(2 * np.pi * df['day_of_year'] / df['day_of_year'].max())
 
     df.drop(columns=['day_of_year', 'hour_of_day', 'day_of_week'], inplace=True)
-    df.drop(columns=['date'], inplace=True)
+    df.set_index('date', inplace=True)
 
     # standardize other features
     scaler = StandardScaler()
+    
+    # this is done to ensure the data is always scaled according to the training data
+    # it does not introduce data leakage, it emulates a model's pipeline
+    if not is_training_data:
+        _, training_df = load_training_data(params)
+    else:
+        training_df = df
+    
     cols_to_scale = [col for col in df.columns if col not in 
                         ['hour_of_day_sin', 'hour_of_day_cos', 'day_of_week_sin', 'day_of_week_cos',
-                            'day_of_year_sin', 'day_of_year_cos']]
+                            'day_of_year_sin', 'day_of_year_cos', 'date']]
 
-    scaled_values = scaler.fit_transform(df[cols_to_scale])
+    scaler.fit(training_df[cols_to_scale])
+    scaled_values = scaler.transform(df[cols_to_scale])
+    training_df = None
 
-    df_scaled = pd.DataFrame(scaled_values, columns=cols_to_scale)
+    df_scaled = pd.DataFrame(scaled_values, columns=cols_to_scale, index=df.index)
 
     df_final = df.drop(cols_to_scale, axis=1)
     df_final = pd.concat([df_final, df_scaled], axis=1)
+    
+    # shuffle data rows
+    if params.shuffle:
+        df_final = shuffle(df_final, random_state=LOAD_DATA_RANDOM_STATE)
 
     return df_final
+
+
+def _select_months(df, months):
+    df = df.reset_index()
+
+    mask = (df['date'].dt.month - 1).isin(months)
+
+    df = df[mask]
+
+    df = df.set_index('date')
+
+    return df
