@@ -1,6 +1,4 @@
-# from utils.load_data import load_training_data, DataLoadingParams
-
-# models/committee_system.py
+# models/committee_modular_system.py
 
 import numpy as np
 
@@ -37,7 +35,9 @@ class CommitteeSystem:
         """
         print(f"--- Training the {self.name} ---")
         for i, model in enumerate(self.models):
-            print(f"Training expert model {i+1}/{len(self.models)}: {model.name}...")
+            # Check if model object has a name attribute before trying to print it
+            model_name = getattr(model, 'name', f'model_{i+1}') 
+            print(f"Training expert model {i+1}/{len(self.models)}: {model_name}...")
             model.train(X_train, y_train)
         print("--- All expert models have been trained. ---")
 

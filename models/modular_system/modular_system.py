@@ -7,7 +7,14 @@ import pandas as pd
 from pathlib import Path
 
 
-
+# --- FIX: Use the list of 9 features that we know are available ---
+FEATURE_COLUMNS = [
+    'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
+    'prev_3_temperature_timestamps_mean',
+    'prev_day_temperature_5_timestamps_mean',
+    'day_of_week_sin', 'day_of_week_cos',
+    'day_of_year_sin', 'day_of_year_cos'
+]
 
 def get_model(hidden_layers: list[int]):
     """Function for creating model with desired hidden layers.
@@ -17,7 +24,8 @@ def get_model(hidden_layers: list[int]):
     :return: model
     """
     model = keras.Sequential()
-    model.add(layers.Dense(hidden_layers[0], activation='sigmoid', input_shape=(14,)))
+    # --- Change input_shape to 9 features ---
+    model.add(layers.Dense(hidden_layers[0], activation='sigmoid', input_shape=(len(FEATURE_COLUMNS),)))
     for layer in hidden_layers[1:]:
         model.add(layers.Dense(layer, activation='sigmoid'))
     model.add(layers.Dense(1))
@@ -50,29 +58,38 @@ def create_and_train_models(hidden_layers: list[list[int]], epochs: list[int], f
                 for example model_0_8-12-4_20_1h.h5
     """
     params = DataLoadingParams()
-    params.prev_day_temp_as_mean = True
+    params.prev_day_temp_as_mean = False # Must be False to get the 5 separate features
     params.freq = freq
+
+    # These settings match the 9 features we are using
+    params.prev_day_load_values = (0, 0) 
+    params.prev_day_load_as_mean = False
+    params.prev_temp_as_mean = True
+    params.prev_day_temp_as_mean = True    
+
     data, _ = load_training_data(params)
     current_folder = Path(__file__).parent
     model_folder = current_folder / "models"
     model_folder.mkdir(exist_ok=True)
 
     for i, (_, group_df) in enumerate(data.groupby(['hour_of_day_sin', 'hour_of_day_cos'])):
-        X_train = pd.DataFrame()
-        X_train[['load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3']] = group_df[['load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3']]
-        # ADD THERE LOADING FROM PREVIOUS DAY
-        X_train[['prev_3_temperature_timestamps_mean']] = group_df[['prev_3_temperature_timestamps_mean']]
-        X_train[['prev_day_temperature_5_timestamps_mean']] = group_df[['prev_day_temperature_5_timestamps_mean']]
-        X_train[['day_of_week_sin', 'day_of_week_cos']] = group_df[['day_of_week_sin', 'day_of_week_cos']]
-        X_train[['day_of_year_sin', 'day_of_year_cos']] = group_df[['day_of_year_sin', 'day_of_year_cos']]
-        Y_train = pd.DataFrame()
-        Y_train['load'] = group_df['load']
+
+
+        if not all(feature in group_df.columns for feature in FEATURE_COLUMNS):
+            print(f"Skipping hour {i} due to missing feature columns.")
+            continue
+            
+        X_train = group_df[FEATURE_COLUMNS]
+        Y_train = group_df[['load']]
+
         for hidden_layer in hidden_layers:
             for epoch in epochs:
                 model = get_model(hidden_layers=hidden_layer)
-                # model.fit(X_train, Y_train, epochs=epoch)
+                model.fit(X_train, Y_train, epochs=epoch) # Uncomment the training line so the model actually learns 
                 hidden_str = "-".join(map(str, hidden_layer))
-                model_path = model_folder / "model_" + str(i) + "_" + hidden_str + "_" + str(epoch) + "_" + freq + ".h5"
+                # --- FIX #2: Corrected the path joining bug ---
+                file_name = f"model_{i}_{hidden_str}_{epoch}_{freq}.h5"
+                model_path = model_folder / file_name
                 model.save(model_path)
 
 
