@@ -1,8 +1,11 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
 import numpy as np
 from tensorflow import Tensor
+
+LOAD_DATA_RANDOM_STATE = int(np.random.default_rng().random() * 100)
 
 class DataLoadingParams:
     """Customizable parameters for the load_data function.
@@ -19,6 +22,7 @@ class DataLoadingParams:
 
     Attributes:
         freq: A frequency string (must be in the pandas freq string format) to resample the data by.
+        shuffle: bool, whether to shuffle data rows (the default is True).
         prev_load_values: int, how many previous load timestamps to include in each data row.
                             Use 0 to not include previous load values.
         prev_day_load_values: tuple[int, int], what window of previous day load timestamps to include in each row,
@@ -39,6 +43,7 @@ class DataLoadingParams:
                             should be filled with mean values (True) or dropped (False).
     """
     freq: str = "1h"
+    shuffle: bool = True
     prev_load_values: int = 3
     prev_day_load_values: tuple[int, int] = (-2, 2)
     prev_load_as_mean: bool = False
@@ -107,6 +112,7 @@ def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
     """
     params = DataLoadingParams()
     params.freq = "15min"
+    params.shuffle = False
 
     if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
         raise ValueError("only resampling to lower frequencies is supported")
@@ -204,6 +210,8 @@ def _load_data(params, years):
     df = _handle_sliding_window_nans(df, params)
 
     real_data_df = df.copy()
+    if params.shuffle:
+        real_data_df = shuffle(real_data_df, random_state=LOAD_DATA_RANDOM_STATE) # shuffle the 'real' df the same way as the ml-ready df
 
     # get ml-ready df
     df = _get_ml_ready_df(df, params, years == TRAINING_YEARS)
@@ -461,6 +469,11 @@ def _get_ml_ready_df(df, params, is_training_data):
 
     df_final = df.drop(cols_to_scale, axis=1)
     df_final = pd.concat([df_final, df_scaled], axis=1)
+    
+    # shuffle data rows
+    if params.shuffle:
+        print(LOAD_DATA_RANDOM_STATE)
+        df_final = shuffle(df_final, random_state=LOAD_DATA_RANDOM_STATE)
 
     return df_final
 
