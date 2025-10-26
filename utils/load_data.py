@@ -51,7 +51,7 @@ class DataLoadingParams:
     prev_temp_values: int = 3
     prev_day_temp_values: tuple[int, int] = (-2, 2)
     prev_temp_as_mean: bool = True
-    prev_day_temp_as_mean: bool = False
+    prev_day_temp_as_mean: bool = True
     interpolate_empty_values: bool = True
     
 
@@ -208,6 +208,9 @@ def _load_data(params, years):
 
     # handle empty values at the beginning of the dataframe (they could not have previous values added)
     df = _handle_sliding_window_nans(df, params)
+
+    # drop temporary 'temperature' column
+    df = df.drop('temperature', axis=1)
 
     real_data_df = df.copy()
     if params.shuffle:
@@ -472,7 +475,6 @@ def _get_ml_ready_df(df, params, is_training_data):
     
     # shuffle data rows
     if params.shuffle:
-        print(LOAD_DATA_RANDOM_STATE)
         df_final = shuffle(df_final, random_state=LOAD_DATA_RANDOM_STATE)
 
     return df_final
