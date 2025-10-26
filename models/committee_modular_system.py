@@ -5,15 +5,12 @@ import numpy as np
 class CommitteeSystem:
     """
     Manages a committee of neural network models for ensemble forecasting.
-    
     This class holds multiple 'expert' models, trains them, and averages 
     their predictions to produce a final, combined forecast.
     """
-    
     def __init__(self, models):
         """
         Initializes the CommitteeSystem.
-        
         Args:
             models (list): A list of instantiated model objects that have
                            .train() and .predict() methods.
@@ -25,10 +22,10 @@ class CommitteeSystem:
         self.name = "Committee Neural System"
         print(f"Initialized {self.name} with {len(self.models)} expert models.")
 
+
     def train(self, X_train, y_train):
         """
         Trains each model in the committee on the provided data.
-        
         Args:
             X_train: The training input data (features).
             y_train: The training output data (target).
@@ -41,13 +38,12 @@ class CommitteeSystem:
             model.train(X_train, y_train)
         print("--- All expert models have been trained. ---")
 
+
     def predict(self, X):
         """
         Generates a prediction by averaging the outputs of all models.
-        
         Args:
             X: The input data for which to make predictions.
-            
         Returns:
             np.ndarray: An array containing the final, averaged predictions.
         """
