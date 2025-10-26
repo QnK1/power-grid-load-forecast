@@ -296,7 +296,7 @@ def _get_previous_loads(df, params):
 
 
 def _get_previous_day_loads(df, params):
-    if params.prev_day_load_values <= (0, 0):
+    if params.prev_day_load_values == (0, 0):
         return df
     
     freq = df.set_index('date').index.inferred_freq
