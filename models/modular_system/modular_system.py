@@ -21,12 +21,15 @@ FEATURE_COLUMNS = [
 def get_model(hidden_layers: list[int]):
     """Function for creating model with desired hidden layers."""
     model = keras.Sequential()
+    model.add(layers.Input(shape=(14,)))
+    for layer in hidden_layers:
         model.add(layers.Dense(layer, activation='sigmoid'))
     model.add(layers.Dense(1))
     model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mape'])
     return model
 
 def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h"):
+    """Function for creating and training models with desired hidden layers, epochs and frequency.
 
     :param hidden_layers: list of hidden layers sizes
                 for example hidden_layers = [[24, 12], [20]] -> two models for each epoch number
