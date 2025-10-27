@@ -309,19 +309,32 @@ def _get_previous_loads(df, params):
 def _get_previous_day_loads(df, params):
     if params.prev_day_load_values == (0, 0):
         return df
+
+    # --- THIS IS THE FIX ---
+    # We set the date as the index to perform the shift operation correctly.
+    df_indexed = df.set_index('date')
+    freq_offset = pd.tseries.frequencies.to_offset(df_indexed.index.inferred_freq)
+    day_offset_steps = int(pd.Timedelta('1D') / freq_offset)
     
-    freq = df.set_index('date').index.inferred_freq
-    freq = pd.Timedelta(pd.tseries.frequencies.to_offset(freq))
-    fit_count = int(pd.to_timedelta('1D') / freq)
+    new_cols_data = {}
+    new_cols_names = []
     
-    new_cols = []
     for i in range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1):
-            df[f"load_previous_day_timestamp_{i}"] = df["load"].shift(i + fit_count)
-            new_cols.append(f"load_previous_day_timestamp_{i}")
+        col_name = f"load_previous_day_timestamp_{i}"
+        new_cols_names.append(col_name)
+        # Shift the 'load' column and store it
+        shifted_series = df_indexed['load'].shift(day_offset_steps + i)
+        new_cols_data[col_name] = shifted_series.values
+
+    # Create a new DataFrame from the shifted data and add it to the original
+    new_cols_df = pd.DataFrame(new_cols_data, index=df.index)
+    df = pd.concat([df, new_cols_df], axis=1)
+    # -----------------------
 
     if params.prev_day_load_as_mean:
-        df[f"prev_day_load_{len(range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1))}_timestamps_mean"] = df[new_cols].mean(axis=1)
-        df = df.drop(columns=new_cols)
+        mean_col_name = f"prev_day_load_{len(new_cols_names)}_timestamps_mean"
+        df[mean_col_name] = df[new_cols_names].mean(axis=1)
+        df = df.drop(columns=new_cols_names)
 
     return df
 
