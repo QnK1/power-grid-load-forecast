@@ -21,42 +21,62 @@ FEATURE_COLUMNS = [
 def get_model(hidden_layers: list[int]):
     """Function for creating model with desired hidden layers."""
     model = keras.Sequential()
-    model.add(layers.Dense(hidden_layers[0], activation='sigmoid', input_shape=(14,)))
-    for layer in hidden_layers[1:]:
         model.add(layers.Dense(layer, activation='sigmoid'))
     model.add(layers.Dense(1))
     model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mape'])
     return model
 
-def create_and_train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h"):
-    """Function for creating and training models..."""
-    params = DataLoadingParams()
-    # --- Tell the data loader to create the 5 separate 'previous day' features ---
-    params.prev_day_load_as_mean = False 
-    params.prev_day_temp_as_mean = True
-    params.freq = freq
+def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h"):
+
+    :param hidden_layers: list of hidden layers sizes
+                for example hidden_layers = [[24, 12], [20]] -> two models for each epoch number
+                first with two hidden layers with [24, 12] nodes and second with one hidden layer  with [20] nodes
+    :param epochs: list of epochs numbers for training for each model
+                for example epochs = [10, 20] means to train each network 10 and 20 epochs
+    :param freq: frequency of data ONLY "15min", "30min", "1h" or "2h"
+
+    each model input has 14 features:
+    1,2,3: Power load at the three previous hours L(i - 1), L(i - 2), L(i - 3).
+    4,5,6,7,8: Power load on the previous day at the same hour and for neighbouring ones: L(i - 22), L(i - 23), L(i - 24), L(i - 25), L(i - 26).
+    9: Mean temperature at last three hours: (T(i - 1) + T(i - 2) + T(i - 3))/3.
+    10: Mean temperature on the previous day at the same hour and for neighbouring hours: (T(i - 22) + T(i - 23) + T(i - 24) + T(i - 25) + T(i - 26))/5
+    11,12: The number of the day in week as sin and cos.
+    13,14: The number of the day in year as sin and cos.
     
+    This function saves each model to subfloder "models"
+    each model is saved as 'model_{iteration}_{hidden_layers}_{epoch}_{frequency}.h5'
+                for example model_0_8-12-4_20_1h.h5
+    """
+
+    params = DataLoadingParams()
+    params.freq = freq
+    params.prev_load_values = 3
+    params.prev_day_load_values= (-2, 2)
+    params.prev_load_as_mean = False
+    params.prev_day_load_as_mean = False
+    params.prev_temp_values = 3
+    params.prev_temp_as_mean = True
+    params.prev_day_temp_values = (-2, 2)
+    params.prev_day_temp_as_mean = True
+    params.interpolate_empty_values = True
+
     data, _ = load_training_data(params)
     current_folder = Path(__file__).parent
     model_folder = current_folder / "models"
     model_folder.mkdir(exist_ok=True)
 
-    for i, (_, group_df) in enumerate(data.groupby(['hour_of_day_sin', 'hour_of_day_cos'])):
-        # Check if all required 14 features are present in the loaded data
-        if not all(feature in group_df.columns for feature in FEATURE_COLUMNS):
-            print(f"Skipping hour {i} due to missing feature columns.")
-            continue
-
-        # Select the correct 14 features
-        X_train = group_df[FEATURE_COLUMNS]
-        Y_train = group_df[['load']]
-        
+    grouped = data.groupby(data.index.time, sort=True)
+    for i, (time, group) in enumerate(grouped):
+        X_train = group[FEATURE_COLUMNS]
+        y_train= group['load']
+        # we might add data randomisation here
         for hidden_layer in hidden_layers:
-            for epoch in epochs:
-                model = get_model(hidden_layers=hidden_layer)
-                model.fit(X_train, Y_train, epochs=epoch, verbose=0)
+            epoch_done = 0
+            model = get_model(hidden_layers=hidden_layer)
+            for epoch_goal in sorted(epochs):
+                model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=0)
                 hidden_str = "-".join(map(str, hidden_layer))
-                # --- fixed the path joining bug ---
-                file_name = f"model_{i}_{hidden_str}_{epoch}_{freq}.h5"
+                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}.keras"
                 model_path = model_folder / file_name
                 model.save(model_path)
+                epoch_done = epoch_goal
