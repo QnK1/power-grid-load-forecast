@@ -106,7 +106,7 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
                     pred_values[(i_total + i_pred) % len(models)].append(y_test.iloc[i_total + i_pred])
                     load_prev3, load_prev2, load_prev1 = load_prev2, load_prev1, y_pred
 
-            with open(f"results/eval_results_{hidden_str}_{epoch_goal}_{freq}.txt", 'w') as f:
+            with open(f"{Path(__file__).parent}/results/eval_results_{hidden_str}_{epoch_goal}_{freq}.txt", 'w') as f:
                 f.write(f"starting_day, mape_{forecast_range}_*_{freq}\n")
                 for i in range(len(models)):
                     y_real = decode_ml_outputs(np.array(real_values[i]).reshape(-1, 1), raw_data).flatten()
@@ -114,5 +114,3 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
                     mape = np.mean(np.abs((y_real - y_pred) / y_real) * 100)
                     f.write(f"{i}, {mape}\n")
 
-
-train_and_evaluate_models(hidden_layers = [[5]], epochs = [5], freq = "1h", train = True, forecast_range = 20)
