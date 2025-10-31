@@ -1,8 +1,11 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
 import numpy as np
 from tensorflow import Tensor
+
+LOAD_DATA_RANDOM_STATE = int(np.random.default_rng().random() * 100)
 
 class DataLoadingParams:
     """Customizable parameters for the load_data function.
@@ -19,6 +22,7 @@ class DataLoadingParams:
 
     Attributes:
         freq: A frequency string (must be in the pandas freq string format) to resample the data by.
+        shuffle: bool, whether to shuffle data rows (the default is True).
         prev_load_values: int, how many previous load timestamps to include in each data row.
                             Use 0 to not include previous load values.
         prev_day_load_values: tuple[int, int], what window of previous day load timestamps to include in each row,
@@ -39,6 +43,7 @@ class DataLoadingParams:
                             should be filled with mean values (True) or dropped (False).
     """
     freq: str = "1h"
+    shuffle: bool = True
     prev_load_values: int = 3
     prev_day_load_values: tuple[int, int] = (-2, 2)
     prev_load_as_mean: bool = False
@@ -46,7 +51,7 @@ class DataLoadingParams:
     prev_temp_values: int = 3
     prev_day_temp_values: tuple[int, int] = (-2, 2)
     prev_temp_as_mean: bool = True
-    prev_day_temp_as_mean: bool = False
+    prev_day_temp_as_mean: bool = True
     interpolate_empty_values: bool = True
     
 
@@ -107,6 +112,7 @@ def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
     """
     params = DataLoadingParams()
     params.freq = "15min"
+    params.shuffle = False
 
     if pd.tseries.frequencies.to_offset(params.freq) < pd.tseries.frequencies.to_offset("15min"):
         raise ValueError("only resampling to lower frequencies is supported")
@@ -203,7 +209,12 @@ def _load_data(params, years):
     # handle empty values at the beginning of the dataframe (they could not have previous values added)
     df = _handle_sliding_window_nans(df, params)
 
+    # drop temporary 'temperature' column
+    df = df.drop('temperature', axis=1)
+
     real_data_df = df.copy()
+    if params.shuffle:
+        real_data_df = shuffle(real_data_df, random_state=LOAD_DATA_RANDOM_STATE) # shuffle the 'real' df the same way as the ml-ready df
 
     # get ml-ready df
     df = _get_ml_ready_df(df, params, years == TRAINING_YEARS)
@@ -296,21 +307,34 @@ def _get_previous_loads(df, params):
 
 
 def _get_previous_day_loads(df, params):
-    if params.prev_day_load_values <= (0, 0):
+    if params.prev_day_load_values == (0, 0):
         return df
+
+    # --- THIS IS THE FIX ---
+    # We set the date as the index to perform the shift operation correctly.
+    df_indexed = df.set_index('date')
+    freq_offset = pd.tseries.frequencies.to_offset(df_indexed.index.inferred_freq)
+    day_offset_steps = int(pd.Timedelta('1D') / freq_offset)
     
-    freq = df.set_index('date').index.inferred_freq
-    freq = pd.Timedelta(pd.tseries.frequencies.to_offset(freq))
-    fit_count = int(pd.to_timedelta('1D') / freq)
+    new_cols_data = {}
+    new_cols_names = []
     
-    new_cols = []
     for i in range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1):
-            df[f"load_previous_day_timestamp_{i}"] = df["load"].shift(i + fit_count)
-            new_cols.append(f"load_previous_day_timestamp_{i}")
+        col_name = f"load_previous_day_timestamp_{i}"
+        new_cols_names.append(col_name)
+        # Shift the 'load' column and store it
+        shifted_series = df_indexed['load'].shift(day_offset_steps + i)
+        new_cols_data[col_name] = shifted_series.values
+
+    # Create a new DataFrame from the shifted data and add it to the original
+    new_cols_df = pd.DataFrame(new_cols_data, index=df.index)
+    df = pd.concat([df, new_cols_df], axis=1)
+    # -----------------------
 
     if params.prev_day_load_as_mean:
-        df[f"prev_day_load_{len(range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1))}_timestamps_mean"] = df[new_cols].mean(axis=1)
-        df = df.drop(columns=new_cols)
+        mean_col_name = f"prev_day_load_{len(new_cols_names)}_timestamps_mean"
+        df[mean_col_name] = df[new_cols_names].mean(axis=1)
+        df = df.drop(columns=new_cols_names)
 
     return df
 
@@ -461,6 +485,10 @@ def _get_ml_ready_df(df, params, is_training_data):
 
     df_final = df.drop(cols_to_scale, axis=1)
     df_final = pd.concat([df_final, df_scaled], axis=1)
+    
+    # shuffle data rows
+    if params.shuffle:
+        df_final = shuffle(df_final, random_state=LOAD_DATA_RANDOM_STATE)
 
     return df_final
 
