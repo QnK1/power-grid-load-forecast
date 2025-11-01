@@ -47,6 +47,9 @@ def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: 
         A compiled Keras Sequential model ready for training.
     """
 
+    if len(lstm_layers) == 0:
+        raise ValueError("There should be at least one LSTM layer in a LSTM Network")
+
     model = keras.Sequential()
     model.add(layers.Input(shape=(sequence_length, features_count)))
 
@@ -100,12 +103,12 @@ def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length
         representing target values for each sequence.
     """
 
-    x_data = data[features]
+    X_data = data[features]
     y_data = data[label]
 
     X, y = [], []
     for i in range(len(data) - sequence_length - prediction_length):
-        X.append(x_data.iloc[i:i + sequence_length].values)
+        X.append(X_data.iloc[i:i + sequence_length].values)
         y.append(y_data.iloc[i + sequence_length:i + sequence_length + prediction_length].values)
     return np.array(X), np.array(y)
 
@@ -180,15 +183,51 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
     model_path = model_folder / f"{file_name}.keras"
     model.save(model_path)
 
+def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, epochs: int) -> str:
+    """
+    Generates a standardized model name string based on model architecture and training configuration.
+
+    This naming convention ensures models can be easily identified when saved to disk.
+
+    Parameters
+    ----------
+    lstm_layers : list[int]
+        List of neuron counts for each LSTM layer, in order of appearance.
+        Example: [64, 32] will be represented as "LSTM_64-32".
+
+    dense_layers : list[int]
+        List of neuron counts for each Dense layer used after LSTM layers (excluding the output layer).
+        If empty, "DENSE_NONE" will be used in the name.
+
+    sequence_length : int
+        Number of past timesteps used as model input (also known as window size).
+
+    prediction_length : int
+        Number of future timesteps the model predicts.
+
+    epochs : int
+        Number of training epochs used for this model configuration.
+
+    Returns
+    -------
+    str
+        A descriptive model name, for example:
+        "LSTM_64-32_DENSE_16-8_24_6_50"
+        meaning:
+        LSTM layers: [64, 32], Dense layers: [16, 8], seq_len=24, pred_len=6, epochs=50
+    """
+
+    return f"LSTM_{"-".join(map(str, lstm_layers))}_DENSE_{"-".join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}"
+
 # Training section (to be removed later)
 
-lstm_layers = [32]
-dense_layers = [16]
-sequence_length = 168
-prediction_length = 24
+lstm_layers = [8]
+dense_layers = [8]
+sequence_length = 24
+prediction_length = 1
 model = get_model(lstm_layers, dense_layers, sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0.2, recurrent_dropout=0.2)
 predicted_label = 'load'
-epochs = 50
-file_name = f"LSTM_{"-".join(map(str, lstm_layers))}_DENSE_{"-".join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}"
+epochs = 10
+file_name = get_model_name(lstm_layers, dense_layers, sequence_length, prediction_length, epochs)
 
 train_model(model, sequence_length, prediction_length, predicted_label, epochs, file_name=file_name)
