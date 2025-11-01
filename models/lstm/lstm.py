@@ -12,7 +12,7 @@ from tensorflow.keras.losses import MeanAbsolutePercentageError, MeanSquaredErro
 import pandas as pd
 import numpy as np
 
-# This list defines the 8 features the model expects.
+# This list defines the 7 features the model expects.
 FEATURE_COLUMNS = [
     'load',
     'hour_of_day_sin', 'hour_of_day_cos',
@@ -70,37 +70,100 @@ def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: 
 
     model.add(layers.Dense(prediction_length))
 
-    optimizer = Adam(learning_rate=0.003)
-    model.compile(optimizer=optimizer, loss=MeanSquaredError(), metrics=['mse'])
+    model.compile(optimizer='adam', loss=MeanSquaredError(), metrics=['mse'])
     return model
 
-def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length: int, features: list[str]) -> tuple[np.ndarray, np.ndarray]:
-    data = data[features]
+def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length: int, features: list[str], label: str) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Converts a time-series DataFrame into sliding window sequences for supervised learning.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame with all features already processed and scaled.
+
+    sequence_length : int
+        Number of historical timesteps used as input (window size).
+
+    prediction_length : int
+        Number of future timesteps the model should predict.
+
+    features : list[str]
+        List of feature column names to be used as model input.
+
+    label : str
+        Column name containing the target values to predict.
+
+    Returns
+    -------
+    X : np.ndarray
+        Numpy array of shape (num_samples, sequence_length, num_features),
+        representing input sequences for the model.
+
+    y : np.ndarray
+        Numpy array of shape (num_samples, prediction_length),
+        representing target values for each sequence.
+    """
+
+    x_data = data[features]
+    y_data = data[label]
 
     X, y = [], []
     for i in range(len(data) - sequence_length - prediction_length):
-        X.append(data[features].iloc[i:i + sequence_length].values)
-        y.append(data['load'].iloc[i + sequence_length:i + sequence_length + prediction_length].values)
-    #print(y[:1000])
+        X.append(x_data.iloc[i:i + sequence_length].values)
+        y.append(y_data.iloc[i + sequence_length:i + sequence_length + prediction_length].values)
     return np.array(X), np.array(y)
 
-def train_model(epochs: int, freq: str = "1h"):
+def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, freq: str = "1h") -> None:
+    """
+   Trains the provided model using historical time-series data.
+
+   Parameters
+   ----------
+   model : keras.Sequential
+       Compiled Keras model created via `get_model`, ready for training.
+
+   sequence_length : int
+       Length of input sequences passed to the model.
+
+   prediction_length : int
+       Number of timesteps into the future the model predicts.
+
+   predicted_label : str
+       Column name containing the target values to be predicted.
+
+   epochs : int
+       Number of training epochs.
+
+   freq : str, optional (default="1h")
+       Data frequency used for training.
+
+   Returns
+   -------
+   None
+       The model is trained and stored in the "models" folder.
+   """
+
     params = DataLoadingParams()
     params.freq = freq
     params.interpolate_empty_values = True
+    params.shuffle = False
 
     data, raw_data = load_training_data(params)
-    #print(data.columns)
     current_folder = Path(__file__).parent
     model_folder = current_folder / "models"
     model_folder.mkdir(exist_ok=True)
 
-    sequence_length = 24
-    prediction_length = 1
-
-    model = get_model([8], [8], sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0, recurrent_dropout=0)
-
-    X_train, y_train = create_sequences(data, sequence_length, prediction_length, FEATURE_COLUMNS)
+    X_train, y_train = create_sequences(data, sequence_length, prediction_length, FEATURE_COLUMNS, predicted_label)
     model.fit(X_train, y_train, epochs=epochs, verbose=1)
 
-train_model(20)
+# Training section (to be removed later)
+
+sequence_length = 24
+prediction_length = 1
+model = get_model([8], [8], sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0, recurrent_dropout=0)
+predicted_label = 'load'
+
+epochs = 50
+
+train_model(model, sequence_length, prediction_length, predicted_label, epochs)
