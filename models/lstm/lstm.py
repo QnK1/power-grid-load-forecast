@@ -1,16 +1,10 @@
-from pathlib import Path
-
-from keras.src.optimizers import Adam
-from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
-from tensorflow.python.layers.core import dropout
-
-from utils.load_data import load_training_data, decode_ml_outputs, DataLoadingParams
-import tensorflow as tf
+from utils.load_data import load_training_data, DataLoadingParams
 from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.keras.losses import MeanAbsolutePercentageError, MeanSquaredError
+from tensorflow.keras.losses import MeanSquaredError
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 # This list defines the 7 features the model expects.
 FEATURE_COLUMNS = [
@@ -55,6 +49,7 @@ def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: 
 
     model = keras.Sequential()
     model.add(layers.Input(shape=(sequence_length, features_count)))
+
     for i, layer in enumerate(lstm_layers):
         is_last = (i == len(lstm_layers) - 1)
 
@@ -114,7 +109,7 @@ def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length
         y.append(y_data.iloc[i + sequence_length:i + sequence_length + prediction_length].values)
     return np.array(X), np.array(y)
 
-def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, freq: str = "1h") -> None:
+def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, freq: str = "1h", file_name: str = "lstm_model", early_stopping: bool = True) -> None:
     """
    Trains the provided model using historical time-series data.
 
@@ -138,10 +133,21 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
    freq : str, optional (default="1h")
        Data frequency used for training.
 
+   file_name : str, optional (default="lstm_model")
+       Name of the file under which the trained model will be saved.
+
+   early_stopping : bool, optional (default=True)
+       If True, uses EarlyStopping to monitor validation loss and stop training when
+       there is no improvement. Prevents overfitting and restores the best model weights.
+
    Returns
    -------
    None
        The model is trained and stored in the "models" folder.
+
+    Args:
+        early_stopping:
+        early_stopping:
    """
 
     params = DataLoadingParams()
@@ -155,15 +161,34 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
     model_folder.mkdir(exist_ok=True)
 
     X_train, y_train = create_sequences(data, sequence_length, prediction_length, FEATURE_COLUMNS, predicted_label)
-    model.fit(X_train, y_train, epochs=epochs, verbose=1)
+
+    early_stop = keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        min_delta=0.001,
+        patience=5,
+        restore_best_weights=True
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        epochs=epochs,
+        validation_split = 0.1 if early_stopping else None,
+        callbacks = [early_stop] if early_stopping else [],
+        verbose=1)
+
+    model_path = model_folder / f"{file_name}.keras"
+    model.save(model_path)
 
 # Training section (to be removed later)
 
-sequence_length = 24
-prediction_length = 1
-model = get_model([8], [8], sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0, recurrent_dropout=0)
+lstm_layers = [32]
+dense_layers = [16]
+sequence_length = 168
+prediction_length = 24
+model = get_model(lstm_layers, dense_layers, sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0.2, recurrent_dropout=0.2)
 predicted_label = 'load'
-
 epochs = 50
+file_name = f"LSTM_{"-".join(map(str, lstm_layers))}_DENSE_{"-".join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}"
 
-train_model(model, sequence_length, prediction_length, predicted_label, epochs)
+train_model(model, sequence_length, prediction_length, predicted_label, epochs, file_name=file_name)
