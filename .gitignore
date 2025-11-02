@@ -297,3 +297,6 @@ models/modular_system/models/
 
 # trained single_mlp 
 models/single_mlp/trained/
+
+# committee models
+models/committee_modular_system/models/

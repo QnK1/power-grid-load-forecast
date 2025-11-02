@@ -504,10 +504,3 @@ def _select_months(df, months):
     df = df.set_index('date')
 
     return df
-
-
-params = DataLoadingParams()
-df, raw = load_training_data(params)
-
-# print(raw[raw['load'] == 0.0])
-# print(raw['load'].min())

@@ -28,7 +28,7 @@ def get_model(hidden_layers: list[int]):
     model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mape'])
     return model
 
-def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h"):
+def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", id=0):
     """Function for creating and training models with desired hidden layers, epochs and frequency.
 
     :param hidden_layers: list of hidden layers sizes
@@ -79,7 +79,7 @@ def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = 
             for epoch_goal in sorted(epochs):
                 model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=0)
                 hidden_str = "-".join(map(str, hidden_layer))
-                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}.keras"
+                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_{id}.keras"
                 model_path = model_folder / file_name
                 model.save(model_path)
                 epoch_done = epoch_goal
