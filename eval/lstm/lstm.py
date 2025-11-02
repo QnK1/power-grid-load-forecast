@@ -29,10 +29,6 @@ def evaluate_models(sequence_length: int, prediction_length: int, file_name: str
     y_real = decode_ml_outputs(y_test, raw_data)
     y_pred = decode_ml_outputs(predictions, raw_data)
 
-    # mask = y_real != 0
-    # mape_per_step = np.mean(np.abs((y_real[mask] - y_pred[mask]) / y_real[mask]), axis=0) * 100
-    # mape_total = np.mean(mape_per_step)
-
     # Calculating MAPE for each predicted step (y_real.shape[1] == prediction_length)
     mape_per_step = []
 
@@ -57,6 +53,3 @@ def evaluate_models(sequence_length: int, prediction_length: int, file_name: str
         for step, mape_step in enumerate(mape_per_step):
             f.write(f'{step}, {mape_step}\n')
         f.write(f'total, {mape_total}\n')
-
-
-evaluate_models(168, 24, 'LSTM_64-32_DENSE_16-16_168_24_50')
