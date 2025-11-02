@@ -286,6 +286,8 @@ def _resample(df, params):
     df = df.set_index("date")
     df = df.resample(params.freq).sum()
     df = df.reset_index()
+    
+    df = df[df['load'] != 0.0]
 
     return df
 
@@ -313,7 +315,7 @@ def _get_previous_day_loads(df, params):
     # --- THIS IS THE FIX ---
     # We set the date as the index to perform the shift operation correctly.
     df_indexed = df.set_index('date')
-    freq_offset = pd.tseries.frequencies.to_offset(df_indexed.index.inferred_freq)
+    freq_offset = pd.to_datetime(df_indexed.index[1]) - pd.to_datetime(df_indexed.index[0])
     day_offset_steps = int(pd.Timedelta('1D') / freq_offset)
     
     new_cols_data = {}
@@ -416,8 +418,7 @@ def _get_previous_day_temps(df, params):
     if params.prev_day_temp_values == (0, 0):
         return df
     
-    freq = df.set_index('date').index.inferred_freq
-    freq = pd.Timedelta(pd.tseries.frequencies.to_offset(freq))
+    freq = pd.to_datetime(df.set_index('date').index[1]) - pd.to_datetime(df.set_index('date').index[0])
     fit_count = int(pd.to_timedelta('1D') / freq)
     
     new_cols = []
@@ -503,3 +504,10 @@ def _select_months(df, months):
     df = df.set_index('date')
 
     return df
+
+
+params = DataLoadingParams()
+df, raw = load_training_data(params)
+
+# print(raw[raw['load'] == 0.0])
+# print(raw['load'].min())

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from pathlib import Path
-from .modular_system import create_and_train_models
+from .modular_system import train_models
 
 class ModularSystemWrapper:
     def __init__(self, hidden_layers=[[24, 12]], epochs=[20], freq="1h"):
@@ -14,15 +14,15 @@ class ModularSystemWrapper:
         print(f"Initialized {self.name} Wrapper.")
 
     def train(self, X_train, y_train):
-        print(f"   Handing off training to original create_and_train_models function...")
-        create_and_train_models(self.hidden_layers, self.epochs, self.freq)
+        print(f"   Handing off training to original train_models function...")
+        train_models(self.hidden_layers, self.epochs, self.freq)
 
     def predict(self, X):
         all_predictions = pd.Series(index=X.index, dtype=float)
         for hour, group in X.groupby(X.index.hour):
             if group.empty: continue
             hidden_str = "-".join(map(str, self.hidden_layers[0]))
-            model_filename = f"model_{hour}_{hidden_str}_{self.epochs[0]}_{self.freq}.h5"
+            model_filename = f"model_{hour}_{hidden_str}_{self.epochs[0]}_{self.freq}.keras"
             model_path = self.models_dir / model_filename
             if not model_path.exists():
                 all_predictions.loc[group.index] = np.nan

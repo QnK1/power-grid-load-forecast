@@ -1,7 +1,10 @@
 import pandas as pd
-from models.committee_modular_system import CommitteeSystem
+from models.committee_modular_system.committee_modular_system import CommitteeSystem
 from models.modular_system.modular_system_wrapper import ModularSystemWrapper
 from utils.load_data import load_training_data, load_test_data, DataLoadingParams, decode_ml_outputs
+
+from sklearn.metrics import mean_absolute_percentage_error
+import numpy as np
 
 FEATURE_COLUMNS = [
     'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
@@ -20,30 +23,27 @@ def main():
     modular_model = ModularSystemWrapper(hidden_layers=[[24, 12]], epochs=[20])
     committee = CommitteeSystem(models=[modular_model])
 
-    print("\nStep 2: Training the committee...")
-    committee.train(X_train=None, y_train=None)
-
-    print("\nStep 3: Loading data for evaluation...")
+    df, raw_df = load_training_data(DataLoadingParams())
+    
+    X, y = df[FEATURE_COLUMNS], df['load']
+    
+    committee.train(X, y)
+    
     params = DataLoadingParams()
     params.shuffle = False
-    params.prev_day_load_as_mean = False # Match training config
-    _, y_train_raw = load_training_data(params)
-    X_test_raw, y_test_raw = load_test_data(params)
-    X_test = X_test_raw[FEATURE_COLUMNS]
+    test_df, test_df_raw = load_test_data(params)
+    
+    pred = committee.predict(test_df[FEATURE_COLUMNS])
+    pred = decode_ml_outputs(pred, raw_df)
+    
+    mape = mean_absolute_percentage_error(test_df_raw['load'].to_numpy(), pred)
+    
+    print(test_df_raw['load'])
+    print(pred)
+    print(mape)
 
-    print("\nStep 4: Making predictions...")
-    scaled_predictions = committee.predict(X_test)
-
-    print("\nStep 5: Decoding predictions to real values...")
-    final_predictions = decode_ml_outputs(scaled_predictions, y_train_raw)
-
-    print("\n--- Final Results ---")
-    results_df = pd.DataFrame({
-        'Actual Load (MW)': y_test_raw['load'].values,
-        'Predicted Load (MW)': final_predictions.flatten()
-    }, index=y_test_raw.index)
-    print("Comparison of Actual vs. Predicted values (first 24 hours):")
-    print(results_df.head(24))
+    
+    test_df_raw.to_csv("dff.csv")
 
 if __name__ == "__main__":
     main()
