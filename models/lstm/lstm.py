@@ -6,9 +6,11 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# This list defines the 7 features the model expects.
+# This list defines the 9 features the model expects.
 FEATURE_COLUMNS = [
     'load',
+    'prev_3_temperature_timestamps_mean',
+    'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
     'day_of_week_sin', 'day_of_week_cos',
     'day_of_year_sin', 'day_of_year_cos'
