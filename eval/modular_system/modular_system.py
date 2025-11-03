@@ -69,8 +69,8 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
     params.prev_day_temp_as_mean = True
     params.interpolate_empty_values = True
     test_data, raw_data = load_test_data(params)
-    current_folder_parent = Path(__file__).parent.parent
-    model_folder = current_folder_parent / "models" / "modular_system" /  "models"
+    project_folder = Path(__file__).parent.parent.parent
+    model_folder = project_folder / "models" / "modular_system" /  "models"
  
     grouped = test_data.groupby(test_data.index.time, sort=True)
     n_groups = len(grouped)
@@ -91,22 +91,24 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
             real_values = {i: [] for i in range(len(models))}
             pred_values = {i: [] for i in range(len(models))}
             for i_total in range(len(test_data) - forecast_range):
-                # if i_total % 1000 == 0 and i_total > 0:
-                #     print(f'Processed {i_total} of {len(test_data) - forecast_range} samples')
+                if i_total % 1000 == 0 and i_total > 0:
+                    print(f'Processed {i_total} of {len(test_data) - forecast_range} samples')
                 X_current = X_test.iloc[i_total:i_total + forecast_range].copy().reset_index(drop=True)
                 load_prev1, load_prev2, load_prev3 = X_current[PREV_LOADS].iloc[0]
                 for i_pred in range(forecast_range):
                     X_current.at[i_pred, 'load_timestamp_-1'] = load_prev1
                     X_current.at[i_pred, 'load_timestamp_-2'] = load_prev2
                     X_current.at[i_pred, 'load_timestamp_-3'] = load_prev3
-                    model = models[time_to_index(X_test.index[i_total + i_pred], freq)]
+                    model_index = time_to_index(X_test.index[i_total + i_pred], freq)
+                    model = models[model_index]
                     x_input = tf.convert_to_tensor(X_current.iloc[i_pred:i_pred+1].to_numpy(), dtype=tf.float32)
                     y_pred = float(predict_step(model, x_input)[0,0])
-                    real_values[(i_total + i_pred) % len(models)].append(y_pred)
-                    pred_values[(i_total + i_pred) % len(models)].append(y_test.iloc[i_total + i_pred])
+                    pred_values[model_index].append(y_pred)
+                    real_values[model_index].append(y_test.iloc[i_total + i_pred])
                     load_prev3, load_prev2, load_prev1 = load_prev2, load_prev1, y_pred
-
-            with open(f"{Path(__file__).parent}/results/eval_results_{hidden_str}_{epoch_goal}_{freq}.txt", 'w') as f:
+            path = Path(__file__).parent / "results"
+            path.mkdir(parents=True, exist_ok=True)
+            with open(path / f"eval_results_{hidden_str}_{epoch_goal}_{freq}.txt", 'w') as f:
                 f.write(f"starting_day, mape_{forecast_range}_*_{freq}\n")
                 for i in range(len(models)):
                     y_real = decode_ml_outputs(np.array(real_values[i]).reshape(-1, 1), raw_data).flatten()
@@ -114,3 +116,9 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
                     mape = np.mean(np.abs((y_real - y_pred) / y_real) * 100)
                     f.write(f"{i}, {mape}\n")
 
+
+if __name__ == "__main__":
+    train_and_evaluate_models([[50]], [50], "2h", train=True, forecast_range=20)
+    # train_and_evaluate_models([[50]], [50], "1h", train=False, forecast_range=20)
+    train_and_evaluate_models([[50]], [50], "30min", train=True, forecast_range=20)
+    train_and_evaluate_models([[50]], [50], "15min", train=True, forecast_range=20)

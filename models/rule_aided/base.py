@@ -36,7 +36,21 @@ class RuleBasedModel(tf.keras.Model):
         return final_output
 
 
-def get_lookup_table(default_value: float) -> dict[pd.Timestamp, float]:
+def get_lookup_table(default_value: float) -> tf.lookup.StaticHashTable:
+    rule_averages = get_special_days_dict()
+    
+    keys_tensor = tf.constant(list(rule_averages.keys()), dtype=tf.string)
+    values_tensor = tf.constant(list(rule_averages.values()), dtype=tf.float32)
+    
+    lookup_table = tf.lookup.StaticHashTable(
+        initializer=tf.lookup.KeyValueTensorInitializer(keys_tensor, values_tensor),
+        default_value=default_value,
+    )
+    
+    return lookup_table
+
+
+def get_special_days_dict():
     # %m-%d format
     SPECIAL_DATES = [
         '01-01', # New Year's
@@ -89,13 +103,5 @@ def get_lookup_table(default_value: float) -> dict[pd.Timestamp, float]:
         for date in easter_dates[name]:
             for index, value in means.items():
                 rule_averages[f"{date.strftime('%Y-%m-%d')} {index}"] = value
-    
-    keys_tensor = tf.constant(list(rule_averages.keys()), dtype=tf.string)
-    values_tensor = tf.constant(list(rule_averages.values()), dtype=tf.float32)
-    
-    lookup_table = tf.lookup.StaticHashTable(
-        initializer=tf.lookup.KeyValueTensorInitializer(keys_tensor, values_tensor),
-        default_value=default_value,
-    )
-    
-    return lookup_table
+                
+    return rule_averages

@@ -209,6 +209,8 @@ __marimo__/
 # Covers JetBrains IDEs: IntelliJ, GoLand, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
+.idea/
+
 # User-specific stuff
 .idea/**/workspace.xml
 .idea/**/tasks.xml
@@ -295,3 +297,9 @@ models/modular_system/models/
 
 # trained single_mlp 
 models/single_mlp/trained/
+
+# committee models
+models/committee_modular_system/models/
+
+# rule-aided models
+models/rule_aided/models/

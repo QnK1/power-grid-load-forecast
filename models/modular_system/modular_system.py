@@ -1,4 +1,5 @@
 from utils.load_data import load_training_data, DataLoadingParams
+from models.rule_aided.base import get_special_days_dict
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -28,7 +29,7 @@ def get_model(hidden_layers: list[int]):
     model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mape'])
     return model
 
-def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h"):
+def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", id: int = 0, drop_special_days: bool = False):
     """Function for creating and training models with desired hidden layers, epochs and frequency.
 
     :param hidden_layers: list of hidden layers sizes
@@ -37,6 +38,7 @@ def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = 
     :param epochs: list of epochs numbers for training for each model
                 for example epochs = [10, 20] means to train each network 10 and 20 epochs
     :param freq: frequency of data ONLY "15min", "30min", "1h" or "2h"
+    :param drop_special_days: whether to drop special day row, for the rule-aided system
 
     each model input has 14 features:
     1,2,3: Power load at the three previous hours L(i - 1), L(i - 2), L(i - 3).
@@ -64,6 +66,16 @@ def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = 
     params.interpolate_empty_values = True
 
     data, _ = load_training_data(params)
+    
+    # needed by the rule-aided model
+    if drop_special_days:
+        special_days_dict = get_special_days_dict()
+        special_dates = [pd.to_datetime(k) for k in special_days_dict.keys()]
+        
+        data = data.reset_index()
+        data = data[~data['date'].isin(special_dates)]
+        data = data.set_index('date')
+    
     current_folder = Path(__file__).parent
     model_folder = current_folder / "models"
     model_folder.mkdir(exist_ok=True)
@@ -79,7 +91,7 @@ def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = 
             for epoch_goal in sorted(epochs):
                 model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=0)
                 hidden_str = "-".join(map(str, hidden_layer))
-                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}.keras"
+                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_{id}.keras"
                 model_path = model_folder / file_name
                 model.save(model_path)
                 epoch_done = epoch_goal
