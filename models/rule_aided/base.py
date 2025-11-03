@@ -36,7 +36,7 @@ class RuleBasedModel(tf.keras.Model):
         return final_output
 
 
-def get_lookup_table(default_value: float) -> dict[pd.Timestamp, float]:
+def get_lookup_table(default_value: float) -> tf.lookup.StaticHashTable:
     rule_averages = get_special_days_dict()
     
     keys_tensor = tf.constant(list(rule_averages.keys()), dtype=tf.string)

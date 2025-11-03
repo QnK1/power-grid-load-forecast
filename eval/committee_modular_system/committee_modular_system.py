@@ -31,7 +31,7 @@ def eval(model, params):
     mapes = {}
     for i in range(size - 24):
         pred = []
-        buffer = X.iloc[i:i+24].copy()\
+        buffer = X.iloc[i:i+24].copy()
         
         start_hour = X.index[i].hour
         

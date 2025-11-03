@@ -5,7 +5,7 @@ from pathlib import Path
 from .modular_system import train_models
 
 class ModularSystemWrapper:
-    def __init__(self, hidden_layers=[[24, 12]], epochs=[20], freq="1h", id=0):
+    def __init__(self, hidden_layers=[[24, 12]], epochs=[20], freq="1h", id=0, drop_special_days=False):
         self.name = "Modular System"
         self.hidden_layers = hidden_layers
         self.epochs = epochs
@@ -13,6 +13,7 @@ class ModularSystemWrapper:
         self.models_dir = Path(__file__).parent / "models"
         self.id = id
         self.hourly_models = {}
+        self.drop_special_days = drop_special_days
         
 
     def train(self, X_train, y_train):
@@ -35,7 +36,7 @@ class ModularSystemWrapper:
         
         
         if not all_loaded:
-            train_models(self.hidden_layers, self.epochs, self.freq, self.id)
+            train_models(self.hidden_layers, self.epochs, self.freq, self.id, self.drop_special_days)
             
             for hour in range(24):
                 hidden_str = "-".join(map(str, self.hidden_layers[0]))
@@ -52,14 +53,11 @@ class ModularSystemWrapper:
         Public-facing predict method.
         Handles data conversion from pandas to TensorFlow tensors.
         """
-        # 1. Convert pandas DataFrame and index to TensorFlow tensors
         x_tensor = tf.convert_to_tensor(X.values, dtype=tf.float32)
         hours_tensor = tf.convert_to_tensor(X.index.hour, dtype=tf.int32)
-        
-        # 2. Call the optimized, graph-compiled function
+
         predictions = self._predict_tf(x_tensor, hours_tensor)
-        
-        # 3. Reshape the final output as needed
+
         return predictions.numpy().reshape(-1, 1)
 
 
@@ -85,16 +83,13 @@ class ModularSystemWrapper:
 
                 if tf.shape(hourly_data)[0] > 0:
                     predictions = model(hourly_data, training=False)
-                    
-                    # FIX: Replace tf.squeeze() with tf.reshape(..., [-1])
-                    # This ensures the prediction is always a vector (1-D).
+
                     reshaped_predictions = tf.reshape(predictions, [-1])
                     
                     predictions_array = predictions_array.write(array_idx, reshaped_predictions)
                     indices_array = indices_array.write(array_idx, hourly_indices)
                     array_idx += 1
         
-        # This will now work correctly
         all_predictions = predictions_array.concat()
         all_indices = indices_array.concat()
         

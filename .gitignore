@@ -300,3 +300,6 @@ models/single_mlp/trained/
 
 # committee models
 models/committee_modular_system/models/
+
+# rule-aided models
+models/rule_aided/models/
