@@ -4,6 +4,8 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.losses import MeanAbsolutePercentageError
+from tensorflow.keras.losses import MeanSquaredError
+from tensorflow.keras.callbacks import EarlyStopping
 import pandas as pd
 from pathlib import Path
 
@@ -24,7 +26,7 @@ def get_model(hidden_layers: list[int]):
     model = keras.Sequential()
     model.add(layers.Input(shape=(14,)))
     for layer in hidden_layers:
-        model.add(layers.Dense(layer, activation='sigmoid'))
+        model.add(layers.Dense(layer, activation='relu'))
     model.add(layers.Dense(1))
     model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mape'])
     return model
