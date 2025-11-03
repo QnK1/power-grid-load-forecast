@@ -13,7 +13,7 @@ FEATURE_COLUMNS = [
     'day_of_year_sin', 'day_of_year_cos'
 ]
 
-def evaluate_models(sequence_length: int, prediction_length: int, file_name: str, freq: str = '1h'):
+def evaluate_models(sequence_length: int, prediction_length: int, file_name: str, freq: str = '1h', save_results: bool = True):
     project_folder = Path(__file__).parent.parent.parent
     model_path = project_folder / 'models' / 'lstm' / 'models' / f'{file_name}.keras'
     model = load_model(model_path)
@@ -48,8 +48,11 @@ def evaluate_models(sequence_length: int, prediction_length: int, file_name: str
     mape_per_step = np.array(mape_per_step, dtype=float)
     mape_total = np.nanmean(mape_per_step)
 
-    with open(f'{Path(__file__).parent}/results/eval_results_{file_name}.txt', 'w') as f:
-        f.write(f'step, mape_{freq}\n')
-        for step, mape_step in enumerate(mape_per_step):
-            f.write(f'{step}, {mape_step}\n')
-        f.write(f'total, {mape_total}\n')
+    if save_results:
+        with open(f'{Path(__file__).parent}/results/eval_results_{file_name}.txt', 'w') as f:
+            f.write(f'step, mape_{freq}\n')
+            for step, mape_step in enumerate(mape_per_step):
+                f.write(f'{step}, {mape_step}\n')
+            f.write(f'total, {mape_total}\n')
+
+    return y_real, y_pred
