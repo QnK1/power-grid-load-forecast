@@ -13,7 +13,51 @@ FEATURE_COLUMNS = [
     'day_of_year_sin', 'day_of_year_cos'
 ]
 
-def evaluate_models(sequence_length: int, prediction_length: int, file_name: str, freq: str = '1h', save_results: bool = True):
+def evaluate_models(sequence_length: int, prediction_length: int, file_name: str, freq: str = '1h', save_results: bool = True) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Evaluates a trained LSTM model on test data and calculates MAPE for each forecast step.
+
+    This function:
+    1. Loads a saved model by name.
+    2. Loads test and raw (unscaled) data.
+    3. Creates sliding-window test sequences.
+    4. Generates predictions for each sequence.
+    5. Decodes model outputs back to MW values.
+    6. Computes MAPE (Mean Absolute Percentage Error) per forecast step.
+    7. Optionally saves results to a .txt file.
+
+    Parameters
+    ----------
+    sequence_length : int
+        Number of historical timesteps used as input for each prediction (window size).
+
+    prediction_length : int
+        Number of future timesteps the model predicts for each sequence.
+
+    file_name : str
+        Name of the saved model file (without extension). Must match the .keras file name.
+
+    freq : str, optional
+        Data frequency used for evaluation (default is '1h').
+
+    save_results : bool, optional
+        If True, saves the per-step and total MAPE values to a results .txt file.
+        Default is True.
+
+    Returns
+    -------
+    y_real : np.ndarray
+        Array of shape (num_samples, prediction_length) with decoded true load values in MW.
+
+    y_pred : np.ndarray
+        Array of shape (num_samples, prediction_length) with decoded predicted load values in MW.
+
+    Notes
+    -----
+    - Uses direct multi-step forecasting (model predicts all future steps at once).
+    - Returned arrays allow further processing, such as plotting sample forecast curves.
+    """
+
     project_folder = Path(__file__).parent.parent.parent
     model_path = project_folder / 'models' / 'lstm' / 'models' / f'{file_name}.keras'
     model = load_model(model_path)
