@@ -437,12 +437,9 @@ def _handle_sliding_window_nans(df, params):
     if params.interpolate_empty_values:
         numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
         
-        df['date'] = pd.to_datetime(df['date'])
-        df = df.set_index('date')
+        column_means = df[numeric_cols].mean()
 
-        df[numeric_cols] = df[numeric_cols].interpolate(method='linear', limit_direction='backward')
-
-        df = df.reset_index()
+        df[numeric_cols] = df[numeric_cols].fillna(column_means)
     else:
         df = df.dropna()
     
@@ -504,3 +501,8 @@ def _select_months(df, months):
     df = df.set_index('date')
 
     return df
+
+
+df, raw = load_training_data(DataLoadingParams())
+df.to_csv('df.csv')
+raw.to_csv('raw.csv')

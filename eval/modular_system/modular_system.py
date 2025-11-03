@@ -81,7 +81,7 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
             models = {}
             for i in range(n_groups):
                 
-                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}.keras"
+                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_0.keras"
                 model = model_folder / file_name
                 models[i] = keras.models.load_model(model)
 
