@@ -14,7 +14,7 @@ import tensorflow as tf
 class SingleMLPConfig:
     """Konfiguracja jednowarstwowego MLP (sigmoid)."""
     input_dim: int = 16
-    hidden_units: int = 12
+    hidden_units: int = 25
     learning_rate: float = 1e-3
     seed: int = 42
 
@@ -115,7 +115,7 @@ def load_model(path: str | Path) -> tf.keras.Model:
 
 def prepare_Xy(df_ml) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """
-    Przyjmuje DataFrame zwrócony przez Twój loader (kolumny z cechami + 'load').
+    Przyjmuje DataFrame zwrócony przez loader (kolumny z cechami + 'load').
     Zwraca: X, y, lista_nazw_cech.
     """
     if "load" not in df_ml.columns:
@@ -130,19 +130,15 @@ def prepare_Xy(df_ml) -> tuple[np.ndarray, np.ndarray, list[str]]:
 if __name__ == "__main__":
     from utils.load_data import load_training_data, DataLoadingParams
 
-    print("Ładowanie danych treningowych...")
     params = DataLoadingParams()
     df_train, df_train_raw = load_training_data(params)
 
-    print("Przygotowywanie macierzy X/y...")
     X_train, y_train, feat_cols = prepare_Xy(df_train)
-    print(f"Dane gotowe: {X_train.shape[0]} próbek, {X_train.shape[1]} cech")
 
     # konfiguracja
     hidden_units = SingleMLPConfig().hidden_units
-    epochs = 20
+    epochs = 15
 
-    print(f"Trenowanie modelu ({hidden_units} neuronów, {epochs} epok)...")
     model, hist = train(
         X_train, y_train,
         hidden_units=hidden_units,
@@ -151,7 +147,6 @@ if __name__ == "__main__":
         learning_rate=1e-3,
     )
 
-    # automatyczna ścieżka zapisu
     save_path = f"models/single_mlp/trained/single_mlp_{hidden_units}neurons_{epochs}epochs.keras"
     from pathlib import Path
     Path(save_path).parent.mkdir(parents=True, exist_ok=True)
