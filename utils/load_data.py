@@ -501,8 +501,3 @@ def _select_months(df, months):
     df = df.set_index('date')
 
     return df
-
-
-df, raw = load_training_data(DataLoadingParams())
-df.to_csv('df.csv')
-raw.to_csv('raw.csv')

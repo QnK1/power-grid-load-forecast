@@ -49,12 +49,11 @@ def train_base_model(hidden_layers, epochs, n_committee):
 
 
 def get_rule_aided_model(base_model):
-    DEFAULT_VALUE = -1000.0
     MODEL_PATH = Path(__file__).parent.resolve() / Path('models')
     
-    lookup_table = get_lookup_table(DEFAULT_VALUE)
+    lookup_table, values_tensor = get_lookup_table()
     
-    model = RuleBasedModel(base_model, lookup_table, DEFAULT_VALUE)
+    model = RuleBasedModel(base_model, lookup_table, values_tensor)
     
     model.save(MODEL_PATH / Path('rule_aided_committee.keras'))
 
