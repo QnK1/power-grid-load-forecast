@@ -68,7 +68,7 @@ def evaluate_models(sequence_length: int, prediction_length: int, file_name: str
 
     test_data, _ = load_test_data(params)
     _, raw_data = load_training_data(params)
-    X_test, y_test = create_sequences(test_data, sequence_length, prediction_length, FEATURE_COLUMNS, 'load')
+    X_test, y_test = create_sequences(test_data, sequence_length, prediction_length, FEATURE_COLUMNS, 'load', shuffle=False)
 
     predictions = model.predict(X_test)
     y_real = decode_ml_outputs(y_test, raw_data)

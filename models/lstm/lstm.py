@@ -1,3 +1,5 @@
+import sklearn.utils
+
 from utils.load_data import load_training_data, DataLoadingParams
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -73,7 +75,7 @@ def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: 
     model.compile(optimizer='adam', loss=MeanSquaredError(), metrics=['mse'])
     return model
 
-def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length: int, features: list[str], label: str) -> tuple[np.ndarray, np.ndarray]:
+def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length: int, features: list[str], label: str, shuffle: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """
     Converts a time-series DataFrame into sliding window sequences for supervised learning.
 
@@ -94,6 +96,12 @@ def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length
     label : str
         Column name containing the target values to predict.
 
+    shuffle : bool, optional (default=True)
+        Whether to randomly shuffle the generated (X, y) sequences. Shuffling ensures
+        that the order of samples is randomized, which is appropriate for training,
+        but should be set to False when preserving temporal order is important
+        (e.g. for test datasets).
+
     Returns
     -------
     X : np.ndarray
@@ -109,10 +117,16 @@ def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length
     y_data = data[label]
 
     X, y = [], []
-    for i in range(len(data) - sequence_length - prediction_length):
+    for i in range(len(data) - sequence_length - prediction_length + 1):
         X.append(X_data.iloc[i:i + sequence_length].values)
         y.append(y_data.iloc[i + sequence_length:i + sequence_length + prediction_length].values)
-    return np.array(X), np.array(y)
+
+    X = np.array(X)
+    y = np.array(y)
+
+    if shuffle:
+        X, y = sklearn.utils.shuffle(X, y)
+    return X, y
 
 def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, freq: str = "1h", file_name: str = "lstm_model", early_stopping: bool = True) -> None:
     """
@@ -149,10 +163,6 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
    -------
    None
        The model is trained and stored in the "models" folder.
-
-    Args:
-        early_stopping:
-        early_stopping:
    """
 
     params = DataLoadingParams()
