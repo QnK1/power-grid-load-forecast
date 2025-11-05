@@ -9,9 +9,7 @@ from .base import RuleBasedModel, get_lookup_table, get_special_days_dict
 from models.modular_system.modular_system import get_model
 
 COMMITTEE_PATH = Path(__file__).parent.resolve() / Path("models/committee_classic.pkl")
-
-def train_base_model(hidden_layers, epochs, n_committee):
-    FEATURE_COLUMNS = [
+FEATURE_COLUMNS = [
         'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
         'load_previous_day_timestamp_-2', 'load_previous_day_timestamp_-1',
         'load_previous_day_timestamp_0', 'load_previous_day_timestamp_1',
@@ -20,8 +18,10 @@ def train_base_model(hidden_layers, epochs, n_committee):
         'prev_day_temperature_5_timestamps_mean',
         'day_of_week_sin', 'day_of_week_cos',
         'day_of_year_sin', 'day_of_year_cos'
-    ]
-    
+]
+
+
+def train_base_model(hidden_layers, epochs, n_committee):
     params = DataLoadingParams()
     
     df, raw = load_training_data(params)
@@ -54,6 +54,7 @@ def get_rule_aided_model(base_model):
     lookup_table, values_tensor = get_lookup_table()
     
     model = RuleBasedModel(base_model, lookup_table, values_tensor)
+    model.build(input_shape=(14,))
     
     model.save(MODEL_PATH / Path('rule_aided_committee.keras'))
 

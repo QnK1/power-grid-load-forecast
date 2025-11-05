@@ -1,48 +1,38 @@
 import tensorflow as tf
 import pandas as pd
 import numpy as np
+import keras
 
 from utils.load_data import load_training_data, DataLoadingParams
 from utils.get_easter_days import get_easter_days_for_years
 
-
+@keras.saving.register_keras_serializable()
 class RuleBasedModel(tf.keras.Model):
     def __init__(self, model_to_wrap, lookup_table, values_tensor, **kwargs):
         super(RuleBasedModel, self).__init__(**kwargs)
         self.base_model = model_to_wrap
         self.lookup_table = lookup_table
         self.values_tensor = values_tensor
-    
-    
-    def call(self, inputs: pd.DataFrame):
-        """
-        Takes the DataFrame input *before* .to_numpy(), as the dates are required for the rules to work.
-        The DataFrame has to contain the 'load_timestamp_-1' column.
-        """
-        # separate ml features from date keys for lookup
-        features = inputs.to_numpy()
-        rule_keys = inputs.reset_index()
-        rule_keys = rule_keys['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        rule_keys = rule_keys.to_numpy()
+        self.default_value_tensor = tf.constant([-1000, -1000], dtype=tf.float64)
         
-        prev_load_real = inputs['load_timestamp_-1'].to_numpy()
-        
-        features = tf.convert_to_tensor(features)
-        rule_keys = tf.convert_to_tensor(rule_keys)
+    
+    def call(self, inputs: tf.Tensor):
+        features = inputs['features']
+        prev_load_real = inputs['prev_load_real']
+        rule_keys = inputs['rule_keys']
         
         base_prediction = self.base_model(features)
         
         looked_up_indices = self.lookup_table.lookup(rule_keys)
         valid_indices = tf.maximum(looked_up_indices, 0)
         gathered_values = tf.gather(self.values_tensor, valid_indices)
-        default_value_tensor = tf.constant([-1000, -1000], dtype=tf.float64)
         
         mask = tf.not_equal(looked_up_indices, tf.constant(-1, dtype=tf.int64))
         
         lookup_values = tf.where(
             tf.expand_dims(mask, axis=-1),
             gathered_values,
-            default_value_tensor
+            self.default_value_tensor
         )
         
         to_subtract = tf.Variable(lookup_values[:, 1]).assign_sub(prev_load_real).value()
@@ -53,6 +43,33 @@ class RuleBasedModel(tf.keras.Model):
         final_output = tf.where(condition, rule_prediction, base_prediction)
         
         return final_output
+    
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "base_model": keras.saving.serialize_keras_object(self.base_model)
+        })
+        return config
+
+
+    @classmethod
+    def from_config(cls, config):
+        config["base_model"] = keras.saving.deserialize_keras_object(config["base_model"])
+        
+        return cls(**config)
+
+
+def preprocess_inputs(inputs: pd.DataFrame):
+    features_tensor = tf.convert_to_tensor(inputs.to_numpy())
+    keys_tensor = tf.convert_to_tensor(inputs.reset_index()['date'].dt.strftime('%Y-%m-%d %H:%M:%S').to_numpy())
+    prev_load_tensor = tf.convert_to_tensor(inputs['load_timestamp_-1'].to_numpy())
+    
+    return {
+        'features': features_tensor,
+        'prev_load_real': prev_load_tensor,
+        'rule_keys': keys_tensor,
+    }
 
 
 def get_lookup_table() -> tuple[tf.lookup.StaticHashTable, tf.Tensor]:
