@@ -63,6 +63,7 @@ def evaluate_models(sequence_length: int, prediction_length: int, file_name: str
     model = load_model(model_path)
 
     params = DataLoadingParams()
+    params.freq = freq
     params.shuffle = False
 
     test_data, _ = load_test_data(params)
