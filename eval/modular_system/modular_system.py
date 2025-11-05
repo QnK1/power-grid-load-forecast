@@ -37,7 +37,7 @@ def time_to_index(time, freq):
     else:
         raise ValueError("unknown frequency")
 
-def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", train = True, forecast_range = 20):
+def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", train = True, forecast_range = 20, verbose=0):
     """
     Function for creating and training models with desired hidden layers, epochs and frequency. For example:
     train_and_evaluate_models(hidden_layers = [[15, 20, 25]], epochs = [40, 50], freq = "1h", train = True, forecast_range = 20)
@@ -54,7 +54,8 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
     """
 
     if train:
-        train_models(hidden_layers, epochs, freq)
+        print('Beginning model training')
+        train_models(hidden_layers, epochs, freq, cur_verbose=verbose)  
         print('Models trained!')
         
     params = DataLoadingParams()
@@ -106,6 +107,7 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
                     pred_values[model_index].append(y_pred)
                     real_values[model_index].append(y_test.iloc[i_total + i_pred])
                     load_prev3, load_prev2, load_prev1 = load_prev2, load_prev1, y_pred
+            print('All samples processed')
             path = Path(__file__).parent / "results"
             path.mkdir(parents=True, exist_ok=True)
             with open(path / f"eval_results_{hidden_str}_{epoch_goal}_{freq}.txt", 'w') as f:
@@ -118,5 +120,5 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
 
 
 if __name__ == "__main__":
-    train_and_evaluate_models([[5], [9], [12], [16]], [25], "1h", train=True, forecast_range=20)
-    train_and_evaluate_models([[25],[25,5]], [20,30,50], "1h", train=True, forecast_range=20)
+    train_and_evaluate_models([[9]], [100], "1h", train=True, forecast_range=20, verbose=1)
+

@@ -4,8 +4,11 @@ import pickle
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_percentage_error
+from keras.models import load_model
 
 from utils.load_data import decode_ml_outputs, load_test_data, DataLoadingParams, load_training_data
+from models.rule_aided.base import RuleBasedModel, preprocess_inputs
+from eval.result_plotter import plot_predictions
 
 
 def eval(model, params):
@@ -15,7 +18,7 @@ def eval(model, params):
     _, train_raw = load_training_data(params)
     
     FEATURE_COLS = [col for col in df.columns if col not in ('load', 'hour_of_day_cos', 'hour_of_day_sin')]
-    RESULTS_DIR = 'results/committee.json'
+    RESULTS_DIR = 'committee_10_dense_24-12_v2'
     
     X = df[FEATURE_COLS]
     y = raw['load']
@@ -26,9 +29,8 @@ def eval(model, params):
     
     shifted_cols = [col[0] for col in enumerate(df.columns) if 'load_timestamp_' in col[1]]
     
-    print(shifted_cols)
-    
     mapes = {}
+    preds = {}
     for i in range(size - 24):
         pred = []
         buffer = X.iloc[i:i+24].copy()
@@ -36,7 +38,10 @@ def eval(model, params):
         start_hour = X.index[i].hour
         
         for j in range(0, 24):
-            curr_pred = model.predict(buffer.iloc[j:j+1])
+            print(buffer.iloc[j:j+1])
+            print(type(buffer.iloc[j:j+1]))
+            
+            curr_pred = model.predict(preprocess_inputs(buffer.iloc[j:j+1]))
             
             pred.append(np.squeeze(curr_pred, axis=0))
             
@@ -44,7 +49,9 @@ def eval(model, params):
                 if j + isc + 1 < 24:
                     buffer.iloc[j + isc + 1, sc] = curr_pred
         
-        mape = mean_absolute_percentage_error(y.iloc[i:i+24], decode_ml_outputs(pred, train_raw))
+        decoded_pred = decode_ml_outputs(pred, train_raw)
+        mape = mean_absolute_percentage_error(y.iloc[i:i+24], decoded_pred)
+        preds.setdefault(start_hour, []).extend(decoded_pred)
         mapes.setdefault(start_hour, []).append(mape)
         
         print(f"{i} / {size}, {mape}")
@@ -53,17 +60,17 @@ def eval(model, params):
     for hour, mape_list in mapes.items():
         final_mapes[hour] = np.mean(mape_list)
     
-    with open(Path(__file__).parent / Path(RESULTS_DIR), 'w') as f:
+    with open(Path(__file__).parent / Path(f"results/{RESULTS_DIR}.json"), 'w') as f:
         json.dump(final_mapes, f, indent=4)
+    
+    plot_predictions(y, preds[0], [i for i in range(y.shape[0])], RESULTS_DIR, True)
 
 
 
 if __name__ == "__main__":
-    model_file = Path(__file__).parent.parent.parent.resolve() / Path('models/rule_aided/models/committee_classic.pkl')
+    model_file = Path(__file__).parent.parent.parent.resolve() / Path('models/rule_aided/models/rule_aided_committee.keras')
+    model = load_model(model_file)
     
-    with open(model_file, 'rb') as file:
-        model = pickle.load(file)
+    params = DataLoadingParams()
         
-        params = DataLoadingParams()
-        
-        eval(model, params)
+    eval(model, params)

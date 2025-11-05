@@ -41,6 +41,8 @@ class DataLoadingParams:
         prev_day_temp_as_mean: If True, the previous day temperature values are aggregated to a mean, if False, they are stored separately.
         interpolate_empty_values: bool, whether rows at the beginning of the DataFrame, that don't have previous values,
                             should be filled with mean values (True) or dropped (False).
+        include_timeindex: Whether to include a feature that represents the number of days since the first day that appeared
+                            in the training data. The default value of include_timeindex is False.
     """
     freq: str = "1h"
     shuffle: bool = True
@@ -53,6 +55,7 @@ class DataLoadingParams:
     prev_temp_as_mean: bool = True
     prev_day_temp_as_mean: bool = True
     interpolate_empty_values: bool = True
+    include_timeindex: bool = False
     
 
 def load_training_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -208,6 +211,10 @@ def _load_data(params, years):
 
     # handle empty values at the beginning of the dataframe (they could not have previous values added)
     df = _handle_sliding_window_nans(df, params)
+
+    # add a timeindex (number of days since first day of training data) feature
+    if params.include_timeindex:
+        df = _add_timeindex_feature(df, params, years == TRAINING_YEARS)
 
     # drop temporary 'temperature' column
     df = df.drop('temperature', axis=1)
@@ -447,6 +454,20 @@ def _handle_sliding_window_nans(df, params):
     return df
 
 
+def _add_timeindex_feature(df, params, is_training_data):
+    if not is_training_data:
+        train_df, _ = load_training_data(params)
+        train_df = train_df.reset_index()
+    else:
+        train_df = df
+
+    first_day = train_df.iloc[0]['date']
+
+    df['timestamp_day'] = (df['date'] - first_day).dt.days
+
+    return df
+
+
 def _get_ml_ready_df(df, params, is_training_data):
     # apply sine-cosine transformation for cyclical features
     df['hour_of_day_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
@@ -473,16 +494,22 @@ def _get_ml_ready_df(df, params, is_training_data):
     
     cols_to_scale = [col for col in df.columns if col not in 
                         ['hour_of_day_sin', 'hour_of_day_cos', 'day_of_week_sin', 'day_of_week_cos',
-                            'day_of_year_sin', 'day_of_year_cos', 'date']]
+                            'day_of_year_sin', 'day_of_year_cos', 'date', 'timestamp_day']]
 
     scaler.fit(training_df[cols_to_scale])
     scaled_values = scaler.transform(df[cols_to_scale])
-    training_df = None
 
     df_scaled = pd.DataFrame(scaled_values, columns=cols_to_scale, index=df.index)
 
     df_final = df.drop(cols_to_scale, axis=1)
     df_final = pd.concat([df_final, df_scaled], axis=1)
+
+    # scaling the timestamp_day like this too keep it linear and prevent test samples from
+    # future years from being interpreted as massive outliers by the model
+    if 'timestamp_day' in df_final.columns:
+        df_final['timestamp_day'] = df_final['timestamp_day'] / training_df['timestamp_day'].max()
+    
+    training_df = None
     
     # shuffle data rows
     if params.shuffle:
