@@ -15,7 +15,8 @@ FEATURE_COLUMNS = [
     'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
     'day_of_week_sin', 'day_of_week_cos',
-    'day_of_year_sin', 'day_of_year_cos'
+    'day_of_year_sin', 'day_of_year_cos',
+    'timestamp_day'
 ]
 
 def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, features_count: int, dropout: float = 0.1, recurrent_dropout: float = 0.1) -> keras.Sequential:
@@ -169,6 +170,7 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
     params.freq = freq
     params.interpolate_empty_values = True
     params.shuffle = False
+    params.include_timeindex = True
 
     data, raw_data = load_training_data(params)
     current_folder = Path(__file__).parent
@@ -195,7 +197,7 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
     model_path = model_folder / f"{file_name}.keras"
     model.save(model_path)
 
-def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, epochs: int) -> str:
+def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, epochs: int, freq: str) -> str:
     """
     Generates a standardized model name string based on model architecture and training configuration.
 
@@ -229,4 +231,4 @@ def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_len
         LSTM layers: [64, 32], Dense layers: [16, 8], seq_len=24, pred_len=6, epochs=50
     """
 
-    return f"LSTM_{"-".join(map(str, lstm_layers))}_DENSE_{"-".join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}"
+    return f"LSTM_{"-".join(map(str, lstm_layers))}_DENSE_{"-".join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}_{freq}"

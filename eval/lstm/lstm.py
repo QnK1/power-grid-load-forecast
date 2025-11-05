@@ -10,7 +10,8 @@ FEATURE_COLUMNS = [
     'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
     'day_of_week_sin', 'day_of_week_cos',
-    'day_of_year_sin', 'day_of_year_cos'
+    'day_of_year_sin', 'day_of_year_cos',
+    'timestamp_day'
 ]
 
 def evaluate_models(sequence_length: int, prediction_length: int, file_name: str, freq: str = '1h', save_results: bool = True) -> tuple[np.ndarray, np.ndarray]:
@@ -65,6 +66,7 @@ def evaluate_models(sequence_length: int, prediction_length: int, file_name: str
     params = DataLoadingParams()
     params.freq = freq
     params.shuffle = False
+    params.include_timeindex = True
 
     test_data, _ = load_test_data(params)
     _, raw_data = load_training_data(params)
