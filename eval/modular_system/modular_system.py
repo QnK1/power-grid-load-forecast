@@ -81,7 +81,7 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
             models = {}
             for i in range(n_groups):
                 
-                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}.keras"
+                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_0.keras"
                 model = model_folder / file_name
                 models[i] = keras.models.load_model(model)
 
@@ -109,7 +109,7 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
             path = Path(__file__).parent / "results"
             path.mkdir(parents=True, exist_ok=True)
             with open(path / f"eval_results_{hidden_str}_{epoch_goal}_{freq}.txt", 'w') as f:
-                f.write(f"starting_day, mape_{forecast_range}_*_{freq}\n")
+                f.write(f"starting_hour, mape_{forecast_range}_*_{freq}\n")
                 for i in range(len(models)):
                     y_real = decode_ml_outputs(np.array(real_values[i]).reshape(-1, 1), raw_data).flatten()
                     y_pred = decode_ml_outputs(np.array(pred_values[i]).reshape(-1, 1), raw_data).flatten()
@@ -118,7 +118,5 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
 
 
 if __name__ == "__main__":
-    train_and_evaluate_models([[50]], [50], "2h", train=True, forecast_range=20)
-    # train_and_evaluate_models([[50]], [50], "1h", train=False, forecast_range=20)
-    train_and_evaluate_models([[50]], [50], "30min", train=True, forecast_range=20)
-    train_and_evaluate_models([[50]], [50], "15min", train=True, forecast_range=20)
+    train_and_evaluate_models([[5], [9], [12], [16]], [25], "1h", train=True, forecast_range=20)
+    train_and_evaluate_models([[25],[25,5]], [20,30,50], "1h", train=True, forecast_range=20)
