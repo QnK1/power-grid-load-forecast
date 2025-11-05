@@ -89,7 +89,14 @@ def get_lookup_table() -> tuple[tf.lookup.StaticHashTable, tf.Tensor]:
     return table, values_tensor
 
 
-def get_special_days_dict():
+def get_special_days_dict() -> dict[str, np.float64]:
+    """Returns a dictionary with special dates and their mean load values.
+    Dates are returned as strings!!!
+    To get just the special dates, use get_special_days_dict().keys().
+
+    Returns:
+        dict[str, np.float64]: A dict in the form {date: mean_load}.
+    """
     # %m-%d format
     SPECIAL_DATES = [
         '01-01', # New Year's
