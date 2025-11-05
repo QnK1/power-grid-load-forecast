@@ -21,6 +21,12 @@ FEATURE_COLUMNS = [
     'day_of_year_sin', 'day_of_year_cos'
 ]
 
+early_stopping = EarlyStopping(
+    monitor='mape',
+    patience=5,
+    restore_best_weights=True
+)
+
 def get_model(hidden_layers: list[int]):
     """Function for creating model with desired hidden layers."""
     model = keras.Sequential()
@@ -28,10 +34,10 @@ def get_model(hidden_layers: list[int]):
     for layer in hidden_layers:
         model.add(layers.Dense(layer, activation='relu'))
     model.add(layers.Dense(1))
-    model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mape'])
+    model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mse', 'mape'])
     return model
 
-def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", id: int = 0, drop_special_days: bool = False):
+def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", id: int = 0, drop_special_days: bool = False, cur_verbose=0):
     """Function for creating and training models with desired hidden layers, epochs and frequency.
 
     :param hidden_layers: list of hidden layers sizes
@@ -91,7 +97,7 @@ def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = 
             epoch_done = 0
             model = get_model(hidden_layers=hidden_layer)
             for epoch_goal in sorted(epochs):
-                model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=0)
+                model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=cur_verbose, callbacks=[early_stopping])
                 hidden_str = "-".join(map(str, hidden_layer))
                 file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_{id}.keras"
                 model_path = model_folder / file_name
