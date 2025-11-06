@@ -1,6 +1,9 @@
+from typing import Callable
+
 from utils.load_data import load_raw_data
 from matplotlib import pyplot as plt
 import pandas as pd
+import numpy as np
 import seaborn as sns
 
 class InputDataPlotCreator:
@@ -176,7 +179,7 @@ class InputDataPlotCreator:
         if show_plot:
             plt.show()
 
-    def create_correlation_matrices_for_months(self, save_plot: bool = False, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrices", show_plot: bool = False) -> None:
+    def create_correlation_matrices(self, save_plot: bool = False, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrices", show_plot: bool = False) -> None:
         """
         Generates and displays a grid of correlation heatmaps for each month and year combination.
 
@@ -232,6 +235,62 @@ class InputDataPlotCreator:
         if show_plot:
             plt.show()
 
+    def create_bar_chart(self, function: Callable, feature: str, for_years: bool = True, normalize: bool = False, save_plot: bool = False, folder: str = "bar_charts/", filename: str = "new_bar_chart", show_plot: bool = False) -> None:
+        """
+        Creates a bar chart of an aggregated feature grouped by years or months using a specified function.
+
+        The method groups the data by year (default) or by month, applies the given aggregation function
+        to the selected feature, and visualizes the result in a bar chart. Optional normalization can be
+        applied to scale aggregated values to the 0–1 range. The plot can be saved to disk or displayed
+        interactively.
+
+        Parameters:
+            function (Callable):
+                A function (e.g., mean, sum, max) used to aggregate the selected feature.
+
+            feature (str):
+                The name of the column to aggregate and visualize.
+
+            for_years (bool, optional):
+                If True, aggregates data by year. If False, aggregates data by month. Default is True.
+
+            normalize (bool, optional):
+                If True, applies min–max normalization (0–1) to aggregated values before plotting.
+                Default is False.
+
+            save_plot (bool, optional):
+                If True, saves the plot to disk. Default is False.
+
+            folder (str, optional):
+                Folder (relative to self.path) where the plot will be saved. Default is "bar_charts/".
+
+            filename (str, optional):
+                Name of the file to save the plot. Default is "new_bar_chart".
+
+            show_plot (bool, optional):
+                If True, displays the plot interactively. Default is False.
+
+        Returns:
+            None
+        """
+
+        group_key = self.raw_df.index.year if for_years else self.raw_df.index.month
+        aggregated = self.raw_df.groupby(group_key)[feature].apply(function)
+
+        if normalize:
+            aggregated = self._normalize_data(aggregated)
+
+        aggregated.plot(kind="bar")
+        plt.xlabel("Year" if for_years else "Month")
+        plt.ylabel(f"{function.__name__.capitalize()} of {feature}")
+        plt.title(f"{feature} aggregated by {'year' if for_years else 'month'}")
+
+        if save_plot:
+            plt.savefig(f"{self.path}{folder}{filename}")
+
+        if show_plot:
+            plt.show()
+
 
     def _normalize_data(self, column: pd.Series) -> pd.Series:
         """
@@ -250,7 +309,9 @@ class InputDataPlotCreator:
 
 # ----- TESTING -----
 
-plot_creator = InputDataPlotCreator([2015, 2016], [4])
+plot_creator = InputDataPlotCreator([2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 #plot_creator.create_line_chart_with_index(["load", "temperature"], normalize=True, save_plot=True)
 #plot_creator.create_correlation_matrix()
-plot_creator.create_correlation_matrices_for_months()
+#plot_creator.create_correlation_matrices()
+plot_creator.create_bar_chart(np.mean, "temperature", normalize=True, save_plot=False, show_plot=True)
+plot_creator.create_bar_chart(sum, "load", normalize=False, save_plot=False, show_plot=True)
