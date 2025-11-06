@@ -23,7 +23,7 @@ from models.lstm.lstm import get_model, get_model_name, train_model, FEATURE_COL
 # epochs = 50
 # file_name = get_model_name(lstm_layers, dense_layers, sequence_length, prediction_length, epochs)
 
-lstm_layers = [64]
+lstm_layers = [64, 32]
 dense_layers = [32, 16]
 sequence_length = 168
 prediction_length = 24
