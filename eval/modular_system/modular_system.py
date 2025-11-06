@@ -1,10 +1,12 @@
-from utils.load_data import load_test_data, DataLoadingParams, decode_ml_outputs
+from utils.load_data import load_test_data, load_training_data, DataLoadingParams, decode_ml_outputs
 from models.modular_system.modular_system import train_models
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 from tensorflow import keras
 from pathlib import Path
+import matplotlib.pyplot as plt
+import os
 
 FEATURE_COLUMNS = [
     'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
@@ -37,7 +39,7 @@ def time_to_index(time, freq):
     else:
         raise ValueError("unknown frequency")
 
-def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", train = True, forecast_range = 20, verbose=0):
+def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", train = True, forecast_range = 20, verbose=0, plot=False):
     """
     Function for creating and training models with desired hidden layers, epochs and frequency. For example:
     train_and_evaluate_models(hidden_layers = [[15, 20, 25]], epochs = [40, 50], freq = "1h", train = True, forecast_range = 20)
@@ -70,6 +72,7 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
     params.prev_day_temp_as_mean = True
     params.interpolate_empty_values = True
     test_data, raw_data = load_test_data(params)
+    test_data = test_data.sort_index()
     project_folder = Path(__file__).parent.parent.parent
     model_folder = project_folder / "models" / "modular_system" /  "models"
  
@@ -91,11 +94,16 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
 
             real_values = {i: [] for i in range(len(models))}
             pred_values = {i: [] for i in range(len(models))}
+            preds = []
+            reals = []
+            dates = []
             for i_total in range(len(test_data) - forecast_range):
+            # for i_total in range(1000):
                 if i_total % 1000 == 0 and i_total > 0:
                     print(f'Processed {i_total} of {len(test_data) - forecast_range} samples')
                 X_current = X_test.iloc[i_total:i_total + forecast_range].copy().reset_index(drop=True)
                 load_prev1, load_prev2, load_prev3 = X_current[PREV_LOADS].iloc[0]
+                start_time_index = time_to_index(X_test.index[i_total], freq)
                 for i_pred in range(forecast_range):
                     X_current.at[i_pred, 'load_timestamp_-1'] = load_prev1
                     X_current.at[i_pred, 'load_timestamp_-2'] = load_prev2
@@ -104,8 +112,11 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
                     model = models[model_index]
                     x_input = tf.convert_to_tensor(X_current.iloc[i_pred:i_pred+1].to_numpy(), dtype=tf.float32)
                     y_pred = float(predict_step(model, x_input)[0,0])
-                    pred_values[model_index].append(y_pred)
-                    real_values[model_index].append(y_test.iloc[i_total + i_pred])
+                    pred_values[start_time_index].append(y_pred)
+                    real_values[start_time_index].append(y_test.iloc[i_total + i_pred])
+                    preds.append(y_pred)
+                    reals.append(y_test.iloc[i_total + i_pred])
+                    dates.append(X_test.index[i_total + i_pred].strftime("%Y/%m/%d %H"))
                     load_prev3, load_prev2, load_prev1 = load_prev2, load_prev1, y_pred
             print('All samples processed')
             path = Path(__file__).parent / "results"
@@ -117,8 +128,23 @@ def train_and_evaluate_models(hidden_layers: list[list[int]], epochs: list[int],
                     y_pred = decode_ml_outputs(np.array(pred_values[i]).reshape(-1, 1), raw_data).flatten()
                     mape = np.mean(np.abs((y_real - y_pred) / y_real) * 100)
                     f.write(f"{i}, {mape}\n")
-
+            if plot:
+                path = Path(__file__).parent / "plots"
+                os.makedirs(path, exist_ok=True)
+                y_real = decode_ml_outputs(np.array(reals).reshape(-1, 1), raw_data).flatten()
+                y_pred = decode_ml_outputs(np.array(preds).reshape(-1, 1), raw_data).flatten()
+                x = list(range(forecast_range))
+                for day in range(7):
+                    for plot_index in range(len(models)):
+                        index = day*forecast_range*24 + plot_index*forecast_range
+                        plt.plot(x, y_real[index:index+forecast_range], label="real")
+                        plt.plot(x, y_pred[index:index+forecast_range], label="pred")
+                        plt.xticks(x, dates[index:index+forecast_range], rotation=80)
+                        name = f'plot_day-{day}_start-model-{plot_index}'
+                        plt.legend()
+                        plt.tight_layout()
+                        plt.savefig(f'{path}/{name}.png')
+                        plt.clf()
 
 if __name__ == "__main__":
-    train_and_evaluate_models([[9]], [100], "1h", train=True, forecast_range=20, verbose=1)
-
+    train_and_evaluate_models([[9]], [40], "1h", train=True, forecast_range=24, verbose=2, plot=True)
