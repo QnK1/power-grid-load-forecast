@@ -295,6 +295,9 @@ http-client.private.env.json
 # Modular system models
 models/modular_system/models/
 
+# Modular system plots
+eval/modular_system/plots
+
 # trained single_mlp 
 models/single_mlp/trained/
 

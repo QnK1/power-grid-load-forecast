@@ -92,12 +92,11 @@ def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = 
     for i, (time, group) in enumerate(grouped):
         X_train = group[FEATURE_COLUMNS]
         y_train= group['load']
-        # we might add data randomisation here
         for hidden_layer in hidden_layers:
             epoch_done = 0
             model = get_model(hidden_layers=hidden_layer)
             for epoch_goal in sorted(epochs):
-                model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=cur_verbose, callbacks=[early_stopping])
+                model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=cur_verbose)
                 hidden_str = "-".join(map(str, hidden_layer))
                 file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_{id}.keras"
                 model_path = model_folder / file_name
