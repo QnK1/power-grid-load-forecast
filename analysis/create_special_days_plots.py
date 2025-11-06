@@ -91,7 +91,7 @@ def plot_top_outliers(k: int):
     fig.supylabel('Date [D.M]', fontsize=14)
     fig.subplots_adjust(left=0.1, bottom=0.1)
     fig.legend(handles=[handle], loc='upper left', ncol=3, fontsize=12)
-    plt.savefig(f"special_days.png")
+    plt.savefig(f"plots/special_days/special_days.png")
     
     
     # handle easter days separately
@@ -161,7 +161,7 @@ def plot_top_outliers(k: int):
     fig.subplots_adjust(left=0.1, bottom=0.1)
     handles, labels = ax[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower left', ncol=3)
-    plt.savefig(f"special_days_easter.png")
+    plt.savefig(f"plots/special_days/special_days_easter.png")
     
 if __name__ == "__main__":
     plot_top_outliers(20)

@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-class PlotCreator:
+class InputDataPlotCreator:
     """
     Class for creating line charts from a raw DataFrame using the index as the X-axis.
 
@@ -50,9 +50,9 @@ class PlotCreator:
             11: "December"
         }
 
-        self.path = "plots/"
+        self.path = "plots/input_data_plots/"
 
-    def create_line_chart_with_index(self, y: list[str], normalize: bool = False, save_plot: bool = False, filename: str = "new_plot") -> None:
+    def create_line_chart_with_index(self, y: list[str], normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot") -> None:
         """
         Plots one or more columns on a single line chart using the DataFrame index as X-axis.
 
@@ -73,10 +73,10 @@ class PlotCreator:
         plt.tight_layout()
         plt.legend()
         if save_plot:
-            plt.savefig(f"{self.path}{filename}")
+            plt.savefig(f"{self.path}{folder}{filename}")
         plt.show()
 
-    def create_line_charts_with_index(self, y: list[str], normalize: bool = False, save_plot: bool = False, filename: str = "new_plot") -> None:
+    def create_line_charts_with_index(self, y: list[str], normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot") -> None:
         """
         Plots multiple subplots in a single row, one subplot per column in `y`.
 
@@ -103,10 +103,10 @@ class PlotCreator:
             axis[i].tick_params(axis='x', rotation=90)
         figure.tight_layout()
         if save_plot:
-            figure.savefig(f"{self.path}{filename}")
+            figure.savefig(f"{self.path}{folder}{filename}")
         plt.show()
 
-    def create_correlation_matrix(self, save_plot: bool = False, filename: str = "new_correlation_matrix") -> None:
+    def create_correlation_matrix(self, save_plot: bool = False, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrix") -> None:
         """
         Generates and displays a correlation heatmap for all numeric columns in the raw DataFrame.
 
@@ -121,10 +121,10 @@ class PlotCreator:
 
         sns.heatmap(self.raw_df.corr(), annot=True, cmap="coolwarm")
         if save_plot:
-            plt.savefig(f"{self.path}{filename}")
+            plt.savefig(f"{self.path}{folder}{filename}")
         plt.show()
 
-    def create_correlation_matrices_for_months(self, save_plot: bool = False, filename: str = "new_correlation_matrices") -> None:
+    def create_correlation_matrices_for_months(self, save_plot: bool = False, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrices") -> None:
         figure, axis = plt.subplots(len(self.months), len(self.years))
 
         for i, year in enumerate(self.years):
@@ -142,7 +142,7 @@ class PlotCreator:
 
         plt.tight_layout()
         if save_plot:
-            plt.savefig(f"{self.path}{filename}")
+            plt.savefig(f"{self.path}{folder}{filename}")
         plt.show()
 
 
@@ -158,7 +158,7 @@ class PlotCreator:
 
 # ----- TESTING -----
 
-plot_creator = PlotCreator([2015, 2016, 2017, 2018], [4, 5, 6, 7, 8])
-#plot_creator.create_line_chart_with_index(["load", "temperature"], True)
+plot_creator = InputDataPlotCreator([2015], [4, 5])
+plot_creator.create_line_chart_with_index(["load", "temperature"], normalize=True, save_plot=True)
 #plot_creator.create_correlation_matrix()
-plot_creator.create_correlation_matrices_for_months()
+#plot_creator.create_correlation_matrices_for_months(save_plot=True)
