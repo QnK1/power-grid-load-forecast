@@ -4,7 +4,8 @@ import os
 
 class ModelPlotCreator:
     def __init__(self):
-        self.save_path = 'plots/model_plots/prediction_plots/'
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        self.save_path = os.path.join(base_path, 'plots/model_plots/prediction_plots/')
 
     def plot_predictions(self, y_real: np.ndarray, y_pred: np.ndarray, model_name: str, folder: str, freq: str, save_plots: bool = True, show_plots: bool = True) -> None:
         """
@@ -25,6 +26,11 @@ class ModelPlotCreator:
 
         model_name : str
             Name of the model, used in the plot title and in the saved filename.
+
+        folder : str
+            Subfolder (relative to the class-level save_path) where the plot will be stored.
+            Useful for organizing plots by model, dataset split, or experiment series.
+            Example: "lstm", "rnn", "committee"
 
         freq : str
             Label describing the frequency of the prediction horizon (e.g., "h" for hourly, "15min" for 15-minute steps).
