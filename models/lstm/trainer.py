@@ -1,4 +1,5 @@
 from models.lstm.lstm import get_model, get_model_name, train_model, FEATURE_COLUMNS
+from analysis.model_analysis import ModelPlotCreator
 
 # Temporary file for creating LSTM models
 
@@ -23,13 +24,16 @@ from models.lstm.lstm import get_model, get_model_name, train_model, FEATURE_COL
 # epochs = 50
 # file_name = get_model_name(lstm_layers, dense_layers, sequence_length, prediction_length, epochs)
 
-lstm_layers = [64, 32]
-dense_layers = [32, 16]
-sequence_length = 168
-prediction_length = 24
+lstm_layers = [8]
+dense_layers = [8]
+sequence_length = 84
+prediction_length = 12
 model = get_model(lstm_layers, dense_layers, sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0.25, recurrent_dropout=0.15)
 predicted_label = 'load'
-epochs = 50
-file_name = get_model_name(lstm_layers, dense_layers, sequence_length, prediction_length, epochs, "1h")
+epochs = 10
+file_name = get_model_name(lstm_layers, dense_layers, sequence_length, prediction_length, epochs, "2h")
 
-train_model(model, sequence_length, prediction_length, predicted_label, epochs, file_name=file_name, freq="1h")
+history = train_model(model, sequence_length, prediction_length, predicted_label, epochs, file_name=file_name, freq="2h")
+
+mpc = ModelPlotCreator()
+mpc.plot_learning_curves(history, file_name, "lstm", True, True)

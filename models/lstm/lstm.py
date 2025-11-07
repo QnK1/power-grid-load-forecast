@@ -4,6 +4,7 @@ from utils.load_data import load_training_data, DataLoadingParams
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.losses import MeanSquaredError
+from tensorflow.keras.callbacks import History
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -129,7 +130,7 @@ def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length
         X, y = sklearn.utils.shuffle(X, y)
     return X, y
 
-def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, freq: str = "1h", file_name: str = "lstm_model", early_stopping: bool = True) -> None:
+def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, freq: str = "1h", file_name: str = "lstm_model", early_stopping: bool = True) -> History:
     """
    Trains the provided model using historical time-series data.
 
@@ -186,7 +187,7 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
         restore_best_weights=True
     )
 
-    model.fit(
+    history = model.fit(
         X_train,
         y_train,
         epochs=epochs,
@@ -196,6 +197,8 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
 
     model_path = model_folder / f"{file_name}.keras"
     model.save(model_path)
+
+    return history
 
 def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, epochs: int, freq: str) -> str:
     """
