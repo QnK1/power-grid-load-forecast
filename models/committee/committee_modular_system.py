@@ -2,14 +2,12 @@ import keras
 from sklearn.model_selection import train_test_split
 from pandas import DataFrame
 
-from .base import RuleBasedModel, get_lookup_table
+from .committee import CommitteeSystem
 from utils.load_data import load_training_data, DataLoadingParams
 
-
-def train_rule_aided_model(model_to_wrap: keras.Model, training_data: DataFrame) -> keras.Model:
+def train_committee(models_to_wrap: list[keras.Model], training_data: DataFrame) -> keras.Model:
     # get the model
-    lookup_table, values_tensor = get_lookup_table()
-    model = RuleBasedModel(model_to_wrap, lookup_table, values_tensor)
+    model = CommitteeSystem(models_to_wrap)
     optimizer = keras.optimizers.Adam(learning_rate=0.001)
     model.compile(optimizer=optimizer, loss="mse", metrics=['mse', 'mape'])
     

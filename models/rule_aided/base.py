@@ -35,8 +35,15 @@ class RuleBasedModel(tf.keras.Model):
             self.default_value_tensor
         )
         
-        to_subtract = tf.Variable(lookup_values[:, 1]).assign_sub(prev_load_real).value()
-        rule_prediction = tf.reshape(tf.Variable(lookup_values[:, 0]).assign_sub(to_subtract).value(), [-1, 1])
+        prev_load_real_f64 = tf.cast(prev_load_real, dtype=tf.float64)
+
+        val_0 = lookup_values[:, 0]
+        val_1 = lookup_values[:, 1]
+        
+        to_subtract = val_1 - prev_load_real_f64
+        rule_prediction_f64 = val_0 - to_subtract
+        
+        rule_prediction = tf.reshape(rule_prediction_f64, [-1, 1])
         rule_prediction = tf.cast(rule_prediction, dtype=tf.float32)
         
         condition = tf.expand_dims(mask, axis=-1)
@@ -105,10 +112,10 @@ def get_special_days_dict() -> dict[str, np.float64]:
         '12-26', # Christmas
         '05-01', # Labour Day
         '10-03', # German Unity Day
+        '01-11', # All Saints' Day
         
         '12-07', # One of the top outliers, close to Nikolaustag
         '01-29', # One of the top outliers, reason unknown
-        '01-11', # One of the top outliers, reason unknown
     ]
     YEARS = range(2015, 2051)
     
@@ -155,8 +162,15 @@ def get_special_days_dict() -> dict[str, np.float64]:
         easter_means[name] = easter_means[name].groupby('hour_str')['load'].mean()
     
     for name, means in easter_means.items():
+        val_1_series = means.shift(1)
+        val_1_series = val_1_series.fillna(means)
+
         for date in easter_dates[name]:
-            for index, value in means.items():
-                rule_averages[f"{date.strftime('%Y-%m-%d')} {index}"] = np.float64(value), mean_by_time_in_year.set_index('time_in_year').loc[f"{(date - pd.Timedelta(days=1)).strftime('%m-%d')} {index}"]['load']
-                
+            for (index, val_0), val_1 in zip(means.items(), val_1_series):
+                date_str = f"{date.strftime('%Y-%m-%d')} {index}"
+                rule_averages[date_str] = (
+                    np.float64(val_0), 
+                    np.float64(val_1)
+                )
+    
     return rule_averages
