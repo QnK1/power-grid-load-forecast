@@ -177,5 +177,12 @@ def train_and_evaluate_model(hidden_layer: list[int], epoch: int, num_models: in
     #             plt.clf()
 
 if __name__ == "__main__":
-    train_and_evaluate_model(hidden_layer=[25], epoch=20, num_models=24,
-                             train=True, forecast_range=20, verbose=1, plot=False)
+
+    hiddens = [[5, 9, 12, 18, 22, 25]]
+    epochs = [45, 50, 55, 60]
+    for hid in hiddens:
+        for epo in epochs:
+            train_and_evaluate_model(hidden_layer=hid, epoch=epo, num_models=24,train=True, forecast_range=24, verbose=1, plot=False)
+
+
+    # train_and_evaluate_model(hidden_layer=[25], epoch=20, num_models=24,train=True, forecast_range=20, verbose=1, plot=False)
