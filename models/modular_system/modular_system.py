@@ -6,6 +6,7 @@ from tensorflow.keras import layers
 from tensorflow.keras.losses import MeanAbsolutePercentageError
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.callbacks import EarlyStopping
+from keras.saving import register_keras_serializable
 import pandas as pd
 from pathlib import Path
 
@@ -18,87 +19,59 @@ FEATURE_COLUMNS = [
     'prev_3_temperature_timestamps_mean',
     'prev_day_temperature_5_timestamps_mean',
     'day_of_week_sin', 'day_of_week_cos',
-    'day_of_year_sin', 'day_of_year_cos'
+    'day_of_year_sin', 'day_of_year_cos',
+    'timestamp_day'
 ]
 
-early_stopping = EarlyStopping(
-    monitor='mape',
-    patience=5,
-    restore_best_weights=True
-)
+@register_keras_serializable()
+class Modular_system(keras.Model):
+    """
+    Class for creating Modular system with desired hidden layers.
+    :param hidden_layers: list of hidden layers sizes
+    :param num_models: number of models in modular system
+                        choose from 12 (freq=2h), 24 (freq=1h), 48 (freq=30min), 96 (freq=15min)
+
+    to fit or predict Modular system model needs dict with keys 'features' -> df of features
+                                        and 'model_index' -> 0, 1, ..., num_models-1
+    model.fit({'features': X_train, 'model_index': hour_of_day}, y_train, epochs=20)
+
+    """
+    def __init__(self,  hidden_layers: list[int], num_models: int = 24, **kwargs):
+        super(Modular_system, self).__init__(**kwargs)
+        self.num_models = num_models
+        self.hidden_layers = hidden_layers
+        self.models = []
+        for _ in range(self.num_models):
+            model = get_model(hidden_layers)
+            self.models.append(model)
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "hidden_layers": self.hidden_layers,
+            "num_models": self.num_models,
+        })
+        return config
+    @tf.function
+    def call(self, inputs, training=False):
+        X_features = inputs['features']
+        H_index = inputs['model_index']
+        H_index = tf.cast(tf.squeeze(H_index), tf.int32)
+        all_model_outputs = [model(X_features) for model in self.models]
+        stacked_outputs = tf.stack(all_model_outputs, axis=0) 
+        stacked_outputs = tf.transpose(stacked_outputs, perm=[1, 0, 2])
+        batch_indices = tf.range(tf.shape(X_features)[0])
+        indices_to_gather = tf.stack([batch_indices, H_index], axis=1)
+        final_output = tf.gather_nd(stacked_outputs, indices_to_gather)
+        return final_output
+        
 
 def get_model(hidden_layers: list[int]):
     """Function for creating model with desired hidden layers."""
     model = keras.Sequential()
-    model.add(layers.Input(shape=(14,)))
+    model.add(layers.Input(shape=(15,)))
     for layer in hidden_layers:
         model.add(layers.Dense(layer, activation='relu'))
+        # model.add(layers.Dropout(0.2))
     model.add(layers.Dense(1))
     model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mse', 'mape'])
     return model
-
-def train_models(hidden_layers: list[list[int]], epochs: list[int], freq: str = "1h", id: int = 0, drop_special_days: bool = False, cur_verbose=0):
-    """Function for creating and training models with desired hidden layers, epochs and frequency.
-
-    :param hidden_layers: list of hidden layers sizes
-                for example hidden_layers = [[24, 12], [20]] -> two models for each epoch number
-                first with two hidden layers with [24, 12] nodes and second with one hidden layer  with [20] nodes
-    :param epochs: list of epochs numbers for training for each model
-                for example epochs = [10, 20] means to train each network 10 and 20 epochs
-    :param freq: frequency of data ONLY "15min", "30min", "1h" or "2h"
-    :param drop_special_days: whether to drop special day row, for the rule-aided system
-
-    each model input has 14 features:
-    1,2,3: Power load at the three previous hours L(i - 1), L(i - 2), L(i - 3).
-    4,5,6,7,8: Power load on the previous day at the same hour and for neighbouring ones: L(i - 22), L(i - 23), L(i - 24), L(i - 25), L(i - 26).
-    9: Mean temperature at last three hours: (T(i - 1) + T(i - 2) + T(i - 3))/3.
-    10: Mean temperature on the previous day at the same hour and for neighbouring hours: (T(i - 22) + T(i - 23) + T(i - 24) + T(i - 25) + T(i - 26))/5
-    11,12: The number of the day in week as sin and cos.
-    13,14: The number of the day in year as sin and cos.
-    
-    This function saves each model to subfloder "models"
-    each model is saved as 'model_{iteration}_{hidden_layers}_{epoch}_{frequency}.h5'
-                for example model_0_8-12-4_20_1h.h5
-    """
-
-    params = DataLoadingParams()
-    params.freq = freq
-    params.prev_load_values = 3
-    params.prev_day_load_values= (-2, 2)
-    params.prev_load_as_mean = False
-    params.prev_day_load_as_mean = False
-    params.prev_temp_values = 3
-    params.prev_temp_as_mean = True
-    params.prev_day_temp_values = (-2, 2)
-    params.prev_day_temp_as_mean = True
-    params.interpolate_empty_values = True
-
-    data, _ = load_training_data(params)
-    
-    # needed by the rule-aided model
-    if drop_special_days:
-        special_days_dict = get_special_days_dict()
-        special_dates = [pd.to_datetime(k) for k in special_days_dict.keys()]
-        
-        data = data.reset_index()
-        data = data[~data['date'].isin(special_dates)]
-        data = data.set_index('date')
-    
-    current_folder = Path(__file__).parent
-    model_folder = current_folder / "models"
-    model_folder.mkdir(exist_ok=True)
-
-    grouped = data.groupby(data.index.time, sort=True)
-    for i, (time, group) in enumerate(grouped):
-        X_train = group[FEATURE_COLUMNS]
-        y_train= group['load']
-        for hidden_layer in hidden_layers:
-            epoch_done = 0
-            model = get_model(hidden_layers=hidden_layer)
-            for epoch_goal in sorted(epochs):
-                model.fit(X_train, y_train, epochs=epoch_goal-epoch_done, verbose=cur_verbose)
-                hidden_str = "-".join(map(str, hidden_layer))
-                file_name = f"model_{i}_{hidden_str}_{epoch_goal}_{freq}_{id}.keras"
-                model_path = model_folder / file_name
-                model.save(model_path)
-                epoch_done = epoch_goal
