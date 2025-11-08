@@ -1,5 +1,4 @@
 from typing import Callable
-
 from utils.load_data import load_raw_data
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -39,23 +38,25 @@ class InputDataPlotCreator:
         self.years = years
 
         self.month_names = {
-            0: "January",
-            1: "February",
-            2: "March",
-            3: "April",
-            4: "May",
-            5: "June",
-            6: "July",
-            7: "August",
-            8: "September",
-            9: "October",
-            10: "November",
-            11: "December"
+            0: 'January',
+            1: 'February',
+            2: 'March',
+            3: 'April',
+            4: 'May',
+            5: 'June',
+            6: 'July',
+            7: 'August',
+            8: 'September',
+            9: 'October',
+            10: 'November',
+            11: 'December'
         }
 
-        self.path = "plots/input_data_plots/"
+        self.path = 'plots/input_data_plots/'
 
-    def create_line_chart_with_index(self, y: list[str], normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot", show_plot: bool = False) -> None:
+        sns.set_theme(style='whitegrid')
+
+    def create_line_chart_with_index(self, y: list[str], title: str = None, normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot", show_plot: bool = False) -> None:
         """
         Plots one or more columns on a single line chart using the DataFrame index as X-axis.
 
@@ -65,6 +66,9 @@ class InputDataPlotCreator:
         Parameters:
             y (list[str]):
                 List of column names to plot.
+
+            title (str, optional):
+                Title to display on the plot. If None, no title is set. Default is None.
 
             normalize (bool, optional):
                 If True, scales the values of each column to the 0–1 range. Default is False.
@@ -85,20 +89,26 @@ class InputDataPlotCreator:
             None
         """
 
-        for i in range(len(y)):
-            column = self._normalize_data(self.raw_df[y[i]]) if normalize else self.raw_df[y[i]]
-            plt.plot(self.raw_df.index, column, label=y[i])
-        plt.xlabel(self.raw_df.index.name)
-        plt.tick_params(axis='x', rotation=90)
-        plt.tight_layout()
-        plt.legend()
-        if save_plot:
-            plt.savefig(f"{self.path}{folder}{filename}")
+        figure, axis = plt.subplots()
+        for col in y:
+            data = self._normalize_data(self.raw_df[col]) if normalize else self.raw_df[col]
+            axis.plot(self.raw_df.index, data, label=col)
+        axis.set_xlabel(self.raw_df.index.name)
+        axis.set_ylabel('Normalized Value' if normalize else 'Value')
+        axis.legend()
+        plt.xticks(rotation=90)
 
+        if title is not None:
+            plt.title(title)
+        plt.tight_layout()
+
+        if save_plot:
+            figure.savefig(f'{self.path}{folder}{filename}')
         if show_plot:
             plt.show()
+        plt.close(figure)
 
-    def create_line_charts_with_index(self, y: list[str], normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot", show_plot: bool = False) -> None:
+    def create_line_charts_with_index(self, y: list[str], title: str = None, normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot", show_plot: bool = False) -> None:
         """
         Plots multiple subplots in a single row, one subplot per column in `y`.
 
@@ -109,6 +119,9 @@ class InputDataPlotCreator:
         Parameters:
             y (list[str]):
                 List of column names to plot.
+
+            title (str, optional):
+                Title to display on the plot. If None, no title is set. Default is None.
 
             normalize (bool, optional):
                 If True, scales the values of each column to the 0–1 range. Default is False.
@@ -140,15 +153,19 @@ class InputDataPlotCreator:
             axis[i].set_xlabel(self.raw_df.index.name)
             axis[i].set_ylabel(y[i])
             axis[i].tick_params(axis='x', rotation=90)
+
+        if title is not None:
+            plt.title(title)
         figure.tight_layout()
 
         if save_plot:
-            figure.savefig(f"{self.path}{folder}{filename}")
+            figure.savefig(f'{self.path}{folder}{filename}')
 
         if show_plot:
             plt.show()
+        plt.close(figure)
 
-    def create_correlation_matrix(self, save_plot: bool = False, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrix", show_plot: bool = False) -> None:
+    def create_correlation_matrix(self, save_plot: bool = False, title: str = None, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrix", show_plot: bool = False) -> None:
         """
         Generates and displays a correlation heatmap for all numeric columns in the raw DataFrame.
 
@@ -158,6 +175,9 @@ class InputDataPlotCreator:
         Parameters:
             save_plot (bool, optional):
                 If True, saves the heatmap as a PNG file. Default is False.
+
+            title (str, optional):
+                Title to display on the plot. If None, no title is set. Default is None.
 
             folder (str, optional):
                 Folder (relative to self.path) where the plot will be saved. Default is "correlation_matrices/".
@@ -172,14 +192,18 @@ class InputDataPlotCreator:
             None
         """
 
-        sns.heatmap(self.raw_df.corr(), annot=True, cmap="coolwarm")
+        figure, axis = plt.subplots()
+        sns.heatmap(self.raw_df.corr(), annot=True, cmap="coolwarm", ax=axis)
+        if title is not None:
+            plt.title(title)
+        plt.tight_layout()
         if save_plot:
-            plt.savefig(f"{self.path}{folder}{filename}")
-
+            figure.savefig(f'{self.path}{folder}{filename}')
         if show_plot:
             plt.show()
+        plt.close(figure)
 
-    def create_correlation_matrices(self, save_plot: bool = False, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrices", show_plot: bool = False) -> None:
+    def create_correlation_matrices(self, save_plot: bool = False, title: str = None, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrices", show_plot: bool = False) -> None:
         """
         Generates and displays a grid of correlation heatmaps for each month and year combination.
 
@@ -190,6 +214,9 @@ class InputDataPlotCreator:
         Parameters:
             save_plot (bool, optional):
                 If True, saves the figure as a PNG file. Default is False.
+
+            title (str, optional):
+                Title to display on the plot. If None, no title is set. Default is None.
 
             folder (str, optional):
                 Folder (relative to self.path) where the figure will be saved. Default is "correlation_matrices/".
@@ -227,6 +254,8 @@ class InputDataPlotCreator:
                     ax.set_yticklabels([])
                     ax.set_ylabel("")
 
+        if title is not None:
+            plt.title(title)
         plt.tight_layout()
 
         if save_plot:
@@ -234,15 +263,16 @@ class InputDataPlotCreator:
 
         if show_plot:
             plt.show()
+        plt.close(figure)
 
-    def create_bar_chart(self, function: Callable, feature: str, for_years: bool = True, normalize: bool = False, save_plot: bool = False, folder: str = "bar_charts/", filename: str = "new_bar_chart", show_plot: bool = False) -> None:
+    def create_bar_chart(self, function: Callable, feature: str, time_period: str = 'year', normalize: bool = False, save_plot: bool = False, folder: str = "bar_charts/", filename: str = "new_bar_chart", show_plot: bool = False) -> None:
         """
         Creates a bar chart of an aggregated feature grouped by years or months using a specified function.
 
-        The method groups the data by year (default) or by month, applies the given aggregation function
-        to the selected feature, and visualizes the result in a bar chart. Optional normalization can be
-        applied to scale aggregated values to the 0–1 range. The plot can be saved to disk or displayed
-        interactively.
+        The method groups the data by a chosen time period (year, month, day, hour, or day_of_week), applies
+        the given aggregation function to the selected feature, and visualizes the result in a bar chart.
+        Optional normalization can be applied to scale aggregated values to the 0–1 range. The plot can be saved
+        to disk or displayed interactively.
 
         Parameters:
             function (Callable):
@@ -251,8 +281,9 @@ class InputDataPlotCreator:
             feature (str):
                 The name of the column to aggregate and visualize.
 
-            for_years (bool, optional):
-                If True, aggregates data by year. If False, aggregates data by month. Default is True.
+            time_period (str, optional):
+                Defines the grouping level for aggregation. Must be one of:
+                'year', 'month', 'day', 'hour', or 'day_of_week'. Default is 'year'.
 
             normalize (bool, optional):
                 If True, applies min–max normalization (0–1) to aggregated values before plotting.
@@ -274,23 +305,40 @@ class InputDataPlotCreator:
             None
         """
 
-        group_key = self.raw_df.index.year if for_years else self.raw_df.index.month
+        group_keys = {
+            'year': self.raw_df.index.year,
+            'month': self.raw_df.index.month,
+            'day': self.raw_df.index.day,
+            'hour': self.raw_df.index.hour,
+            'day_of_week': self.raw_df.index.day_name()
+        }
+
+        if time_period not in group_keys.keys():
+            raise ValueError(f'Given time_period is incorrect: It shoulde be one of: year, month, day, hour, day_of_week, but was {time_period} instead.')
+
+        group_key =  group_keys[time_period]
         aggregated = self.raw_df.groupby(group_key)[feature].apply(function)
+
+        if time_period == 'day_of_week':
+            order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            aggregated.index = pd.CategoricalIndex(aggregated.index, categories=order, ordered=True)
+            aggregated = aggregated.sort_index()
 
         if normalize:
             aggregated = self._normalize_data(aggregated)
 
-        aggregated.plot(kind="bar")
-        plt.xlabel("Year" if for_years else "Month")
-        plt.ylabel(f"{function.__name__.capitalize()} of {feature}")
-        plt.title(f"{feature} aggregated by {'year' if for_years else 'month'}")
+        fig, ax = plt.subplots(figsize=(12, 6))
+        aggregated.plot(kind="bar", ax=ax)
+        ax.set_xlabel(time_period.capitalize().replace("_", " "))
+        ax.set_ylabel(f'{function.__name__.capitalize()} of {feature}')
+        ax.set_title(f'{feature.capitalize()} aggregated by {time_period.replace("_", " ")}')
+        plt.tight_layout()
 
         if save_plot:
-            plt.savefig(f"{self.path}{folder}{filename}")
-
+            fig.savefig(f'{self.path}{folder}{filename}')
         if show_plot:
             plt.show()
-
+        plt.close(fig)
 
     def _normalize_data(self, column: pd.Series) -> pd.Series:
         """
@@ -306,12 +354,3 @@ class InputDataPlotCreator:
         """
 
         return (column - column.min()) / (column.max() - column.min())
-
-# ----- TESTING -----
-
-plot_creator = InputDataPlotCreator([2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-#plot_creator.create_line_chart_with_index(["load", "temperature"], normalize=True, save_plot=True)
-#plot_creator.create_correlation_matrix()
-#plot_creator.create_correlation_matrices()
-plot_creator.create_bar_chart(np.mean, "temperature", normalize=True, save_plot=False, show_plot=True)
-plot_creator.create_bar_chart(sum, "load", normalize=False, save_plot=False, show_plot=True)
