@@ -62,15 +62,27 @@ class RuleBasedModel(tf.keras.Model):
 
     @classmethod
     def from_config(cls, config):
-        config["base_model"] = keras.saving.deserialize_keras_object(config["base_model"])
+        model_to_wrap = keras.saving.deserialize_keras_object(config.pop("base_model"))
+
+        lookup_table, values_tensor = get_lookup_table()
         
-        return cls(**config)
+        return cls(
+            model_to_wrap=model_to_wrap,
+            lookup_table=lookup_table,
+            values_tensor=values_tensor,
+            **config,
+        )
 
 
 def preprocess_inputs(inputs: pd.DataFrame):
-    features_tensor = tf.convert_to_tensor(inputs.to_numpy())
-    keys_tensor = tf.convert_to_tensor(inputs.reset_index()['date'].dt.strftime('%Y-%m-%d %H:%M:%S').to_numpy())
-    prev_load_tensor = tf.convert_to_tensor(inputs['load_timestamp_-1'].to_numpy())
+    if isinstance(inputs, dict):
+        features_tensor = inputs
+        keys_tensor = tf.convert_to_tensor(inputs['features'].reset_index()['date'].dt.strftime('%Y-%m-%d %H:%M:%S').to_numpy())
+        prev_load_tensor = tf.convert_to_tensor(inputs['features']['load_timestamp_-1'].to_numpy())
+    else:
+        features_tensor = tf.convert_to_tensor(inputs.to_numpy())
+        keys_tensor = tf.convert_to_tensor(inputs.reset_index()['date'].dt.strftime('%Y-%m-%d %H:%M:%S').to_numpy())
+        prev_load_tensor = tf.convert_to_tensor(inputs['load_timestamp_-1'].to_numpy())
     
     return {
         'features': features_tensor,

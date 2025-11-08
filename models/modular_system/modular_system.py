@@ -55,7 +55,7 @@ class Modular_system(keras.Model):
     def call(self, inputs, training=False):
         X_features = inputs['features']
         H_index = inputs['model_index']
-        H_index = tf.cast(tf.squeeze(H_index), tf.int32)
+        H_index = tf.cast(H_index, tf.int32)
         all_model_outputs = [model(X_features) for model in self.models]
         stacked_outputs = tf.stack(all_model_outputs, axis=0) 
         stacked_outputs = tf.transpose(stacked_outputs, perm=[1, 0, 2])
