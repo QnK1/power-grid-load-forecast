@@ -5,7 +5,10 @@ from keras.models import load_model
 from pathlib import Path
 
 FEATURE_COLUMNS = [
-    'load',
+    'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
+    'load_previous_day_timestamp_-2', 'load_previous_day_timestamp_-1',
+    'load_previous_day_timestamp_0', 'load_previous_day_timestamp_1',
+    'load_previous_day_timestamp_2',
     'prev_3_temperature_timestamps_mean',
     'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
