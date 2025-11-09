@@ -302,7 +302,7 @@ eval/modular_system/plots
 models/single_mlp/trained/
 
 # committee models
-models/committee_modular_system/models/
+models/committee/models/
 
 # rule-aided models
 models/rule_aided/models/

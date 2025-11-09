@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import os
 from tensorflow.keras.losses import MeanAbsolutePercentageError
 from tensorflow.keras.models import load_model
+from analysis.model_analysis import ModelPlotCreator
 
 
 FEATURE_COLUMNS = [
@@ -49,19 +50,22 @@ def time_index_from_freq(timestamp, freq):
     index = (seconds_since_midnight // step_seconds).astype(int)
     return index
 
-def train_and_evaluate_model(hidden_layer: list[int], epoch: int, num_models: int = 24, train = True, forecast_range = 20, verbose=0, plot=False):
+def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_models: int = 24, train = True,
+                             forecast_range = 24, verbose=0, plot=False, plot_range=24):
     """
     Function for creating and training models with desired hidden layers, epochs and frequency. For example:
     train_and_evaluate_models(hidden_layers = [[15, 20, 25]], epochs = [40, 50], freq = "1h", train = True, forecast_range = 20)
 
-    hidden_layers: list of hidden layers sizes
-                for example hidden_layers = [[24, 12], [20]] -> two models for each epoch number
-                first with two hidden layers with [24, 12] nodes and second with one hidden layer  with [20] nodes
-    epochs: list of epochs numbers for training for each model
+    :param hidden_layers: list of hidden layers sizes
+                for example hidden_layers = [24, 12]
+    :param epochs: list of epochs numbers for training for each model
                 for example epochs = [10, 20] means to train each network 10 and 20 epochs
-    freq: frequency of data ONLY "15min", "30min", "1h" or "2h"
-    train: if True, models will be trained
-    forecast_range: number of samples to forecast and calculate mape
+    :param num_models: number of models to train
+    :param train: if True, models will be trained
+    :param forecast_range: number of samples to forecast and calculate mape
+    :param verbose: 0, 1 or 2. parametr passed to model.fit(verbose=verbose)
+    :param plot: bool, True if you want to plot results, False if you don't 
+    :param plot_range: int, number of plots
     
     """
     freq = freq_from_number(num_models)
@@ -78,6 +82,10 @@ def train_and_evaluate_model(hidden_layer: list[int], epoch: int, num_models: in
     params.interpolate_empty_values = True
     params.include_timeindex = True
     train_data, raw_train_data = load_training_data(params)
+    train_data = train_data.sort_index()
+    train_data = train_data.iloc[3:]          # deleting first 3 rows where load of prev hours is the same
+    train_data = train_data.sample(frac=1)
+    
 
     project_folder = Path(__file__).parent.parent.parent
     model_folder = project_folder / "models" / "modular_system" /  "models"
@@ -85,60 +93,64 @@ def train_and_evaluate_model(hidden_layer: list[int], epoch: int, num_models: in
 
     if train:
         print('Beginning model training')
+        epoch_done = 0
         model = Modular_system(hidden_layers=hidden_layer, num_models=num_models)
         model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mse', 'mape'])
         indexes = time_index_from_freq(train_data.index, freq)
         indexes_tf = tf.convert_to_tensor(indexes, dtype=tf.int32)
-        model.fit({'features': train_data[FEATURE_COLUMNS], 'model_index': indexes_tf},
-                  train_data['load'], epochs=epoch, verbose=verbose, batch_size=32)  
-        model.save(model_folder / f'modular_system_{hidden_str}_{epoch}_{freq}.keras')
+        for epoch in sorted(epochs):
+            model.fit({'features': train_data[FEATURE_COLUMNS], 'model_index': indexes_tf},
+                    train_data['load'], epochs=(epoch-epoch_done), verbose=verbose, batch_size=32)  
+            model.save(model_folder / f'modular_system_{hidden_str}_{epoch}_{freq}.keras')
+            epoch_done = epoch
         print('Models trained!')
-    else:
-        model = load_model(model_folder / f'modular_system_{hidden_str}_{epoch}_{freq}.keras')
    
     test_data, raw_data = load_test_data(params)
-    test_data = test_data.sort_index()
 
+    test_data = test_data.sort_index()
+    test_data = test_data.iloc[3:]          # deleting first 3 rows where load of prev hours is the same
  
     grouped = test_data.groupby(test_data.index.time, sort=True)
-    n_groups = len(grouped)
-
-
-    
-    X_data_test = test_data[FEATURE_COLUMNS]
-    y_data_test = test_data['load']
-
-    real_values = {i: [] for i in range(num_models)}
-    pred_values = {i: [] for i in range(num_models)}
-    reals = []
-    preds = []
-
+    n_groups = len(grouped)    
     
 
-    prev1_load = X_data_test[0:len(X_data_test)-forecast_range]['load_timestamp_-1'].copy()
-    prev2_load = X_data_test[0:len(X_data_test)-forecast_range]['load_timestamp_-2'].copy()
-    prev3_load = X_data_test[0:len(X_data_test)-forecast_range]['load_timestamp_-3'].copy()
+    
     print('Evaluation:')
-    for i in range(forecast_range):
-        percent = (i+1)/forecast_range*100
-        print(f'\r{percent:6.2f}%', end='')
-        stop = len(X_data_test)-forecast_range+i
-        X_data_test.loc[X_data_test.index[i:stop], 'load_timestamp_-1'] = prev1_load
-        X_data_test.loc[X_data_test.index[i:stop], 'load_timestamp_-2'] = prev2_load
-        X_data_test.loc[X_data_test.index[i:stop], 'load_timestamp_-3'] = prev3_load
-        X_test = X_data_test.iloc[i:stop]
-        indexes = time_index_from_freq(X_test.index, freq)
-        indexes_tf = tf.convert_to_tensor(indexes, dtype=tf.int32)
-        y_pred = model.predict({'features': X_test, 'model_index': indexes_tf})
-        prev3_load, prev2_load, prev1_load = prev2_load, prev1_load, y_pred
-        preds.append(np.copy(y_pred))
-        reals.append(np.copy(X_test.to_numpy()))
-        model_indexes = time_index_from_freq(X_data_test.index, freq)
-        for idx, row in enumerate(y_pred):
-            model_index = model_indexes[idx]
-            pred_values[model_index].append(row[0])
-            real_values[model_index].append(y_data_test.iloc[idx+i])
+    for epoch in epochs:
+        print(f'Eval of modular_system_{hidden_str}_{epoch}')
+        X_load = test_data['load'].copy()
+        X_data_test = test_data[FEATURE_COLUMNS].copy()
+        y_data_test = test_data['load'].copy()
+        prev1_load = X_data_test[0:len(X_data_test)-forecast_range]['load_timestamp_-1'].values
+        prev2_load = X_data_test[0:len(X_data_test)-forecast_range]['load_timestamp_-2'].values
+        prev3_load = X_data_test[0:len(X_data_test)-forecast_range]['load_timestamp_-3'].values
+        real_values = {i: [] for i in range(num_models)}
+        pred_values = {i: [] for i in range(num_models)}
+        reals = []
+        preds = []
+        model = keras.models.load_model(model_folder / f'modular_system_{hidden_str}_{epoch}_{freq}.keras')
+        for i in range(forecast_range):
+            percent = (i+1)/forecast_range*100
+            print(f'\r{percent:6.2f}%', end='')
+            stop = len(X_data_test)-forecast_range+i
+            X_data_test.loc[X_data_test.index[i:stop], 'load_timestamp_-1'] = prev1_load
+            X_data_test.loc[X_data_test.index[i:stop], 'load_timestamp_-2'] = prev2_load
+            X_data_test.loc[X_data_test.index[i:stop], 'load_timestamp_-3'] = prev3_load
+            X_test = X_data_test.iloc[i:stop]
+            indexes = time_index_from_freq(X_test.index, freq)
+            indexes_tf = tf.convert_to_tensor(indexes, dtype=tf.int32)
+            y_pred = model.predict({'features': X_test, 'model_index': indexes_tf}, verbose=0)
+            prev3_load, prev2_load, prev1_load = prev2_load, prev1_load, y_pred.flatten()
             
+            model_indexes = time_index_from_freq(X_data_test.index, freq)
+            for idx, row in enumerate(y_pred):
+                model_index = model_indexes[idx]
+                pred_values[model_index].append(row[0])
+                real_values[model_index].append(y_data_test.iloc[idx+i])
+                preds.append(row[0])
+                reals.append(y_data_test.iloc[idx+i])
+        print()
+     
         path = Path(__file__).parent / "results"
         path.mkdir(parents=True, exist_ok=True)
         with open(path / f"eval_results_{hidden_str}_{epoch}_{freq}.txt", 'w') as f:
@@ -146,43 +158,33 @@ def train_and_evaluate_model(hidden_layer: list[int], epoch: int, num_models: in
             for i in range(num_models):
                 y_real = decode_ml_outputs(np.array(real_values[i]).reshape(-1, 1), raw_train_data).flatten()
                 y_pred = decode_ml_outputs(np.array(pred_values[i]).reshape(-1, 1), raw_train_data).flatten()
-                mape = np.mean(np.abs((y_real - y_pred) / y_real) * 100)
+                mape = np.mean(np.abs(y_real - y_pred) / (np.abs(y_real) + 1e-6) * 100)
                 f.write(f"{i}, {mape}\n")
-
-
-        
-
-
-
-
-
-
-
-    # if plot:
-    #     path = Path(__file__).parent / "plots"
-    #     os.makedirs(path, exist_ok=True)
-    #     y_real = decode_ml_outputs(np.array(reals).reshape(-1, 1), raw_train_data).flatten()
-    #     y_pred = decode_ml_outputs(np.array(preds).reshape(-1, 1), raw_train_data).flatten()
-    #     x = list(range(forecast_range))
-    #     for day in range(7):
-    #         for plot_index in range(len(models)):
-    #             index = day*forecast_range*24 + plot_index*forecast_range
-    #             plt.plot(x, y_real[index:index+forecast_range], label="real")
-    #             plt.plot(x, y_pred[index:index+forecast_range], label="pred")
-    #             plt.xticks(x, dates[index:index+forecast_range], rotation=80)
-    #             name = f'plot_day-{day}_start-model-{plot_index}'
-    #             plt.legend()
-    #             plt.tight_layout()
-    #             plt.savefig(f'{path}/{name}.png')
-    #             plt.clf()
+        if plot:
+            plot_creator = ModelPlotCreator()
+            reals = np.array(reals).reshape(forecast_range, -1).T.flatten()
+            preds = np.array(preds).reshape(forecast_range, -1).T.flatten()
+            reals = decode_ml_outputs(reals.reshape(-1, 1), raw_train_data).flatten()
+            preds = decode_ml_outputs(preds.reshape(-1, 1), raw_train_data).flatten()
+            for i in range(plot_range):
+                plot_creator.plot_predictions(
+                    y_real=reals[i*forecast_range : (i+1)*forecast_range], 
+                    y_pred=preds[i*forecast_range : (i+1)*forecast_range], 
+                    model_name=f'modular_system_{hidden_str}_{epoch}_{freq}_{i}',
+                    folder=f'modular_system/model_{hidden_str}_{epoch}',
+                    freq=freq,
+                    save_plot=True,
+                    show_plot=False
+                )
 
 if __name__ == "__main__":
 
-    hiddens = [[5, 9, 12, 18, 22, 25]]
-    epochs = [45, 50, 55, 60]
+    # hiddens = [[5]]
+    # epochs = [5,10,15,20]
+    hiddens = [[20,15,10,5], [20,15,10,5,1], [25,20,15,10,5], [25,20,15,10,5,1],
+               [30,25,20,15,10,5], [30,25,20,15,10,5,1], [35,30,25,20,15,10,5], [35,30,25,20,15,10,5,1],
+               [20,5], [25,5], [30,5], [20,5,1], [25,5,1], [30,5,1]]
+    epochs = [10,20,30,40,50,60,70,80,90,100]
     for hid in hiddens:
-        for epo in epochs:
-            train_and_evaluate_model(hidden_layer=hid, epoch=epo, num_models=24,train=True, forecast_range=24, verbose=1, plot=False)
-
-
-    # train_and_evaluate_model(hidden_layer=[25], epoch=20, num_models=24,train=True, forecast_range=20, verbose=1, plot=False)
+        train_and_evaluate_model(hidden_layer=hid, epochs=epochs, num_models=24, train=True,
+                                 forecast_range=24, verbose=1, plot=True, plot_range=72)
