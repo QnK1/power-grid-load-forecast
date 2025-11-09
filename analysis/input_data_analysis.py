@@ -324,6 +324,13 @@ class InputDataPlotCreator:
             aggregated.index = pd.CategoricalIndex(aggregated.index, categories=order, ordered=True)
             aggregated = aggregated.sort_index()
 
+        elif time_period == 'month':
+            aggregated.index = aggregated.index.map(lambda x: self.month_names[x - 1])
+            order = ['January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December']
+            aggregated.index = pd.CategoricalIndex(aggregated.index, categories=order, ordered=True)
+            aggregated = aggregated.sort_index()
+
         if normalize:
             aggregated = self._normalize_data(aggregated)
 
