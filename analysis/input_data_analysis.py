@@ -340,6 +340,75 @@ class InputDataPlotCreator:
             plt.show()
         plt.close(fig)
 
+    def create_qq_plot(self, x_feature: str, y_feature: str, quantile_count: int, title: str = None, save_plot: bool = False, folder: str = 'qq_plots/', filename: str = 'new_qq_plot', show_plot: bool = False) -> None:
+        """
+        Creates a Quantile–Quantile (QQ) plot comparing two features.
+
+        The method sorts the values of the specified features, divides them into the
+        specified number of quantiles, and plots the quantiles against each other.
+        This allows visualization of the relationship between the distributions of
+        the two features. A reference line at 45 degrees is drawn to indicate perfect
+        agreement between the distributions. The plot can be optionally saved to disk
+        or displayed interactively.
+
+        Parameters:
+            x_feature (str):
+                The name of the column to be used as the X-axis in the QQ plot.
+
+            y_feature (str):
+                The name of the column to be used as the Y-axis in the QQ plot.
+
+            quantile_count (int):
+                The number of quantiles to split each feature into for comparison.
+
+            title (str, optional):
+                Title of the plot. Default is None.
+
+            save_plot (bool, optional):
+                If True, saves the plot to disk. Default is False.
+
+            folder (str, optional):
+                Folder (relative to self.path) where the plot will be saved. Default is "qq_plots/".
+
+            filename (str, optional):
+                Name of the file to save the plot. Default is "new_qq_plot".
+
+            show_plot (bool, optional):
+                If True, displays the plot interactively. Default is False.
+
+        Returns:
+            None
+        """
+
+        figure, axis = plt.subplots()
+
+        x_data = self.raw_df[x_feature].dropna().sort_values().reset_index(drop=True)
+        y_data = self.raw_df[y_feature].dropna().sort_values().reset_index(drop=True)
+
+        x_data = self._normalize_data(x_data)
+        y_data = self._normalize_data(y_data)
+
+        x_quantiles = self._quantile_split(x_data, quantile_count)
+        y_quantiles = self._quantile_split(y_data, quantile_count)
+
+        min_val = min(x_quantiles.min(), y_quantiles.min())
+        max_val = max(x_quantiles.max(), y_quantiles.max())
+        plt.plot([max_val, min_val], [max_val, min_val], color='red', linestyle='--', label='Reference line (y=x)')
+        plt.scatter(x_quantiles, y_quantiles)
+        plt.xlabel(x_feature.capitalize())
+        plt.ylabel(y_feature.capitalize())
+
+        if title is not None:
+            plt.title(title)
+        plt.tight_layout()
+
+        if save_plot:
+            plt.savefig(f"{self.path}{folder}{filename}")
+
+        if show_plot:
+            plt.show()
+        plt.close(figure)
+
     def _normalize_data(self, column: pd.Series) -> pd.Series:
         """
         Normalizes a Pandas Series to the 0–1 range using min-max scaling.
@@ -354,3 +423,35 @@ class InputDataPlotCreator:
         """
 
         return (column - column.min()) / (column.max() - column.min())
+
+    def _quantile_split(self, data: np.array, quantile_count: int) -> np.array:
+        """
+        Splits a sorted array or Pandas Series into a specified number of quantiles.
+
+        The method calculates the positions corresponding to the requested number of
+        quantiles and extracts the values at these positions. This is used for
+        creating QQ plots or other quantile-based analyses. Raises an error if the
+        number of quantiles exceeds the number of data points.
+
+        Parameters:
+            data (np.array or pd.Series):
+                The data array or Pandas Series to be split into quantiles. It should
+                be sorted and may have missing values removed before calling this method.
+
+            quantile_count (int):
+                The number of quantiles to split the data into. Must be less than or
+                equal to the number of data points.
+
+        Returns:
+            np.array:
+                Array containing the values at the calculated quantile positions.
+        """
+
+        data_point_count = len(data)
+        if quantile_count > data_point_count:
+            raise ValueError('The number of quantiles cannot exceed the number of data points.')
+
+        indices = np.linspace(0, data_point_count - 1, quantile_count, dtype=int)
+        quantile_values = data.iloc[indices]
+
+        return np.array(quantile_values)
