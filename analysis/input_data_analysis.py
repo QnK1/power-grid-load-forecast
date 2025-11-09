@@ -409,6 +409,72 @@ class InputDataPlotCreator:
             plt.show()
         plt.close(figure)
 
+    def create_auto_correlation_plot(self, feature: str, lags: int, include_confidence_bounds: bool = True, title: str = None, save_plot: bool = False, folder: str = 'autocorrelation_plots/', filename: str = 'new_autocorrelation_plot', show_plot: bool = False) -> None:
+        """
+        Creates an autocorrelation plot for a selected feature over a specified number of lags.
+
+        The method computes and visualizes autocorrelation values for the given feature to assess
+        how current values relate to past observations at different lag values. Optionally, the
+        plot can include 95% confidence bounds to help identify statistically significant
+        autocorrelation levels. The resulting plot may be saved to disk or displayed interactively.
+
+        Parameters
+        ----------
+        feature : str
+            Name of the column from the dataset for which the autocorrelation should be computed.
+
+        lags : int
+            Number of lag values to include in the autocorrelation plot.
+
+        include_confidence_bounds : bool, optional (default=True)
+            If True, displays upper and lower 95% confidence bounds on the plot to help determine
+            whether autocorrelation values are statistically significant.
+
+        title : str, optional
+            Title of the plot. If None, no title is displayed.
+
+        save_plot : bool, optional (default=False)
+            If True, saves the generated plot to disk.
+
+        folder : str, optional (default='autocorrelation_plots/')
+            Folder (relative to self.path) where the plot will be saved.
+
+        filename : str, optional (default='new_autocorrelation_plot')
+            Name of the file to save the plot.
+
+        show_plot : bool, optional (default=False)
+            If True, displays the plot interactively.
+
+        Returns
+        -------
+        None
+        """
+
+        figure, axis = plt.subplots()
+        data_series = self.raw_df[feature].dropna()
+        data_series = (data_series - data_series.mean()) / data_series.std()
+        axis.acorr(data_series, maxlags=lags, usevlines=True)
+        axis.set_xlim(0, lags)
+
+        if include_confidence_bounds:
+            confidence_bound = 1.96 / np.sqrt(len(data_series))
+            axis.axhline(confidence_bound, color='blue', linestyle='--')
+            axis.axhline(-confidence_bound, color='blue', linestyle='--')
+
+        axis.set_xlabel('Lags')
+        axis.set_ylabel(f'Autocorrelation of {feature}')
+
+        if title is not None:
+            axis.set_title(title)
+        plt.tight_layout()
+
+        if save_plot:
+            figure.savefig(f"{self.path}{folder}{filename}")
+
+        if show_plot:
+            plt.show()
+        plt.close(figure)
+
     def _normalize_data(self, column: pd.Series) -> pd.Series:
         """
         Normalizes a Pandas Series to the 0–1 range using min-max scaling.
