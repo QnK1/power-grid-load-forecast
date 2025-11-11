@@ -564,6 +564,69 @@ class InputDataPlotCreator:
             plt.show()
         plt.close(figure)
 
+    def create_weekly_profile_heat_map(self, feature: str, function: str = 'mean', title: str = None, save_plot: bool = False, folder: str = 'weekly_heat_maps', filename: str = 'new_weekly_heat_map', show_plot: bool = False) -> None:
+        """
+        Creates a 24h × 7-day heatmap for a selected feature from the dataset.
+
+        The method visualizes the distribution of a specified feature across hours of the day and days of the week.
+        It aggregates values using the provided function (e.g., mean, sum) to show typical weekly patterns.
+        Optionally, the plot can be titled, saved to disk, or displayed interactively.
+
+        Parameters
+        ----------
+        feature : str
+            Name of the column from the dataset to visualize in the heatmap.
+
+        function : str, optional (default='mean')
+            Aggregation function to apply when multiple values exist for the same hour and day combination.
+            Supported options include 'mean', 'sum', 'max', 'min', etc.
+
+        title : str, optional
+            Title of the plot. If None, no title is displayed.
+
+        save_plot : bool, optional (default=False)
+            If True, saves the generated heatmap to disk.
+
+        folder : str, optional (default='heatmaps')
+            Folder (relative to self.path) where the plot will be saved.
+
+        filename : str, optional (default='new_heatmap')
+            Name of the file to save the heatmap.
+
+        show_plot : bool, optional (default=False)
+            If True, displays the heatmap interactively.
+
+        Returns
+        -------
+        None
+        """
+
+        df = self.raw_df.copy()
+        df['hour'] = df.index.hour
+        df['day'] = df.index.day_name()
+
+        heatmap_data = df.pivot_table(index='day', columns='hour', values=feature, aggfunc=function)
+
+        days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        heatmap_data = heatmap_data.reindex(days_order)
+
+
+        figure, axis = plt.subplots()
+        sns.heatmap(heatmap_data, ax=axis)
+
+        if title is not None:
+            axis.set_title(title)
+        plt.tight_layout()
+
+        if save_plot:
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
+
+        if show_plot:
+            plt.show()
+        plt.close(figure)
 
     def _normalize_data(self, column: pd.Series) -> pd.Series:
         """
