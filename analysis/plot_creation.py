@@ -60,5 +60,5 @@ plot_creator.create_auto_correlation_plot('load', 96 * 7, title='Load autocorrel
 # for year in years:
 #     plot_creator = InputDataPlotCreator([year], months)
 #     plot_creator.create_correlation_matrices(save_plot=True, filename=f'{year}_second_half_correlation')
-plot_creator.create_histogram('load', save_plot=True, title='Load distribution', filename='load_histogram', bins=50)
+plot_creator.create_histogram('load', save_plot=True, title='Load distribution', filename='load_histogram_normalized', bins=50)
 plot_creator.create_histogram('temperature', save_plot=True, title='Temperature distribution', filename='temperature_histogram', bins=50)

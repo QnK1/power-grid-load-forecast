@@ -510,6 +510,41 @@ class InputDataPlotCreator:
         plt.close(figure)
 
     def create_histogram(self, feature: str, bins: int = 30, title: str = None, save_plot: bool = False, folder: str = 'histograms', filename: str = 'new_histogram', show_plot: bool = False) -> None:
+        """
+        Creates a histogram for a selected feature from the dataset.
+
+        The method visualizes the distribution of values for the specified feature using a histogram.
+        The number of bins can be customized. Optionally, the plot can be titled, saved to disk,
+        or displayed interactively.
+
+        Parameters
+        ----------
+        feature : str
+            Name of the column from the dataset for which the histogram should be generated.
+
+        bins : int, optional (default=30)
+            Number of bins to divide the feature values into.
+
+        title : str, optional
+            Title of the plot. If None, no title is displayed.
+
+        save_plot : bool, optional (default=False)
+            If True, saves the generated histogram to disk.
+
+        folder : str, optional (default='histograms')
+            Folder (relative to self.path) where the plot will be saved.
+
+        filename : str, optional (default='new_histogram')
+            Name of the file to save the histogram.
+
+        show_plot : bool, optional (default=False)
+            If True, displays the histogram interactively.
+
+        Returns
+        -------
+        None
+        """
+
         figure, axis = plt.subplots()
         axis.hist(self.raw_df[feature], bins=bins, edgecolor='black')
         axis.set_xlabel(f'{feature.capitalize()}')
