@@ -79,7 +79,7 @@ class ModelPlotCreator:
         - `plt.close()` is not needed here because only one plot is generated. Add it if used inside a loop.
         """
 
-        save_path = os.path.join(self.save_path, 'prediction_plots/', folder)
+        save_path = os.path.join(self.save_path, 'prediction_plots', folder)
 
         if save_plot:
             os.makedirs(save_path, exist_ok=True)
@@ -141,7 +141,7 @@ class ModelPlotCreator:
         - Raises a `ValueError` if the provided `history` object does not contain validation loss data.
         """
 
-        save_path = os.path.join(self.save_path, 'learning_curves/', folder)
+        save_path = os.path.join(self.save_path, 'learning_curves', folder)
 
         if history.history.get('val_loss') is None:
             raise ValueError('You have to provide a history of a model that has been validated.')
@@ -190,8 +190,6 @@ class ModelPlotCreator:
 
         folder : str
             Subfolder (relative to the class-level `save_path`) where the plot will be stored.
-            Useful for grouping plots by model set, experiment type, data split, or algorithm family.
-            Example: "baseline", "deep_models", "best_models"
 
         freq : str
             Label describing the frequency of the prediction horizon (e.g., "h" for hourly,
@@ -215,7 +213,7 @@ class ModelPlotCreator:
         - The function assumes that all prediction arrays in `y_pred` share the same prediction horizon length as `y_real`.
         """
 
-        save_path = os.path.join(self.save_path, 'prediction_plots/', folder)
+        save_path = os.path.join(self.save_path, 'prediction_plots', folder)
 
         if len(y_pred) != len(model_names):
             raise ValueError('There should be as many prediction arrays as there are model names.')
@@ -236,6 +234,114 @@ class ModelPlotCreator:
         if save_plot:
             joined_names = '-'.join(model_names)
             file_path = os.path.join(save_path, f'{joined_names}_prediction.png')
+            plt.savefig(file_path)
+
+        if show_plot:
+            plt.show()
+
+        plt.close()
+
+    def compare_average_mape(self, model_names: list[str], average_mape: list[float], folder: str, save_plot: bool = True, show_plot: bool = True) -> None:
+        """
+        Creates a bar chart comparing average MAPE values across models.
+
+        The method visualizes the Mean Absolute Percentage Error (MAPE) for multiple models
+        using a bar plot, allowing easy comparison of their average performance.
+        Optionally, the plot can be saved to disk or displayed interactively.
+
+        Parameters
+        ----------
+        model_names : list of str
+            Names of the models to be compared.
+
+        average_mape : list of float
+            Corresponding average MAPE values for each model.
+
+        folder : str
+            Subfolder (relative to self.save_path/average_mape_plots) where the plot will be saved.
+
+        save_plot : bool, optional (default=True)
+            If True, saves the generated plot to disk.
+
+        show_plot : bool, optional (default=True)
+            If True, displays the plot interactively.
+
+        Returns
+        -------
+        None
+        """
+
+        save_path = os.path.join(self.save_path, 'average_mape_plots', folder)
+
+        if len(model_names) != len(average_mape):
+            raise ValueError('Number of models should equal the number of average values of MAPE.')
+
+        if save_plot:
+            os.makedirs(save_path, exist_ok=True)
+
+        plt.bar(model_names, average_mape)
+        plt.xlabel('Model')
+        plt.ylabel('Average MAPE')
+        plt.xticks(rotation=45)
+
+        plt.tight_layout()
+
+        if save_plot:
+            joined_names = '-'.join(model_names)
+            file_path = os.path.join(save_path, f'{joined_names}_prediction.png')
+            plt.savefig(file_path)
+
+        if show_plot:
+            plt.show()
+
+        plt.close()
+
+    def plot_mape_over_horizon(self, model_name: str, mape_values: list[float], folder: str, save_plot: bool = True, show_plot: bool = True) -> None:
+        """
+        Plots MAPE values across prediction horizons for a single model.
+
+        The method visualizes how the Mean Absolute Percentage Error (MAPE)
+        changes with the length of the prediction horizon. This helps assess
+        model performance degradation over time. Optionally, the plot can be
+        saved to disk or displayed interactively.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of the model for which the MAPE values are plotted.
+
+        mape_values : list of float
+            Sequence of MAPE values corresponding to increasing prediction horizons.
+
+        folder : str
+            Subfolder (relative to self.save_path/mape_over_horizon_plots)
+            where the plot will be saved.
+
+        save_plot : bool, optional (default=True)
+            If True, saves the generated plot to disk.
+
+        show_plot : bool, optional (default=True)
+            If True, displays the plot interactively.
+
+        Returns
+        -------
+        None
+        """
+
+        save_path = os.path.join(self.save_path, 'mape_over_horizon_plots', folder)
+
+        if save_plot:
+            os.makedirs(save_path, exist_ok=True)
+
+        plt.plot(mape_values)
+        plt.xlabel('Prediction Horizon')
+        plt.ylabel('MAPE')
+        plt.title(f'MAPE over horizon for {model_name}')
+
+        plt.tight_layout()
+
+        if save_plot:
+            file_path = os.path.join(save_path, f'{model_name}_prediction.png')
             plt.savefig(file_path)
 
         if show_plot:
