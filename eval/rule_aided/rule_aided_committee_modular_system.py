@@ -3,61 +3,29 @@ import tensorflow as tf
 from pathlib import Path
 from sklearn.metrics import mean_absolute_percentage_error
 import numpy as np
+import pandas as pd
 
 from eval.modular_system.modular_system import time_index_from_freq
 from utils.load_data import load_test_data, load_training_data, DataLoadingParams, decode_ml_outputs
 from models.modular_system.modular_system import FEATURE_COLUMNS, get_model
 from models.committee.committee import CommitteeSystem
 from models.rule_aided.base import RuleBasedModel, preprocess_inputs, get_lookup_table
+from eval.helpers import plot_predictions, eval_autoregressive
 
-def eval(model, params):
-    test_data, raw_test = load_test_data(params)
-    _, raw_trainig = load_training_data(params)
-    
-    X, y = test_data[FEATURE_COLUMNS], raw_test['load']
-    
-    lag_indices = [i[0] for i in enumerate(X.columns) if 'load_timestamp' in i[1]]
-    
-    mapes = {}
-    size = X.shape[0]
-    
-    for i in range(len(X) - 24):
-        starting_hour = X.index[i].hour
-        
-        x_copy = X.iloc[i:i+24].copy()
-        
-        pred = []
-        y_real = y.iloc[i:i+24]
-        
-        for j in range(24):
-            x_indices = time_index_from_freq(x_copy.iloc[[j]].index, "1h")
-            x_indices_tf = tf.convert_to_tensor(x_indices, dtype=tf.int32)
 
-            input = {'features': x_copy.iloc[[j]], 'model_index': x_indices_tf}
+def prepare_inputs(x: pd.DataFrame):
+    x_indices = time_index_from_freq(x.index, "1h")
+    x_indices_tf = tf.convert_to_tensor(x_indices, dtype=tf.int32)
 
-            output = model.predict(preprocess_inputs(input), verbose=0)
-            pred.append(decode_ml_outputs(output, raw_trainig))
-            
-            for lag_number, lag_value in enumerate(lag_indices):
-                if j + lag_number + 1 + 1 < 24:
-                    x_copy.iloc[j + lag_number + 1, lag_value] = output
-        
-        mape = mean_absolute_percentage_error(y_real, np.squeeze(pred, axis=1))
-        mapes.setdefault(starting_hour, []).append(mape)
-        
-        print(f"{i} / {size}, {mape}")
-    
-    final_mapes = {}
-    for hour, mape_list in mapes.items():
-        final_mapes[hour] = np.mean(mape_list)
-        
-    return final_mapes
-    
+    modular_input = {'features': x, 'model_index': x_indices_tf}
+    rule_aided_input = preprocess_inputs(modular_input)
+
+    return rule_aided_input
 
 
 if __name__ == "__main__":
     PATH = Path(__file__).parent.parent.parent.resolve() / Path('models/rule_aided/models') 
-    MODEL_PATH = PATH / Path('rule_aided_committee_modular_system_[5, 9, 12, 18, 22, 25]_10.keras')
+    MODEL_PATH = PATH / Path('rule_aided_committee_modular_system_[25, 5]_10.keras')
     
     params = DataLoadingParams()
     params.include_timeindex = True
@@ -65,11 +33,18 @@ if __name__ == "__main__":
     
     model = load_model(MODEL_PATH)
     
-    mapes = eval(model, params)
+    pred, mapes = eval_autoregressive(model, params, FEATURE_COLUMNS, 24, prepare_inputs)
     mape_total = sum(mapes.values()) / len(mapes.values())
     
-    with open(f"{Path(__file__).parent.resolve() / Path('results')}/{f'{MODEL_PATH}'.replace(f'{PATH}', '')}", 'w') as f:
+    MODEL_NAME = f'{MODEL_PATH}'.replace(f'{PATH}\\', '')
+    with open(f"{Path(__file__).parent.resolve() / Path('results')}/{MODEL_NAME}", 'w') as f:
         f.write('starting_hour, mape\n')
         for hour, mape in sorted(mapes.items()):
             f.write(f'{hour}, {mape}\n')
         f.write(f'total, {mape_total}\n')
+    
+    PLOTS_PATH = Path(__file__).parent.parent.parent.resolve() / Path("analysis/plots/model_plots/prediction_plots/rule_aided_committee_modular_system")
+    
+    _, raw_test = load_test_data(params)
+    non_zero_mask = pred[5] != 0.0
+    plot_predictions(raw_test['load'].iloc[non_zero_mask], pred[5][non_zero_mask], MODEL_NAME.replace(".keras", ""), "1h", save_path=PLOTS_PATH)
