@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Callable
 from utils.load_data import load_raw_data
 from matplotlib import pyplot as plt
@@ -23,7 +25,7 @@ class InputDataPlotCreator:
         years (list[int]): List of years included in the dataset and used for plotting.
         months (list[int]): List of months included in the dataset and used for filtering plots.
         month_names (dict[int, str]): Mapping of month indices (0–11) to their English names.
-        path (str): Directory path where plots will be saved. Default is "plots/"""
+        path (str): Directory path where plots will be saved. Default is "plots/input_data_plots"""
 
     def __init__(self, years: list[int], months: list[int]):
         """
@@ -52,11 +54,11 @@ class InputDataPlotCreator:
             11: 'December'
         }
 
-        self.path = 'plots/input_data_plots/'
+        self.path = Path("plots") / "input_data_plots"
 
         sns.set_theme(style='whitegrid')
 
-    def create_line_chart_with_index(self, y: list[str], title: str = None, normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot", show_plot: bool = False) -> None:
+    def create_line_chart_with_index(self, y: list[str], title: str = None, normalize: bool = False, save_plot: bool = False, folder: str = "line_plots", filename: str = "new_plot", show_plot: bool = False) -> None:
         """
         Plots one or more columns on a single line chart using the DataFrame index as X-axis.
 
@@ -77,7 +79,7 @@ class InputDataPlotCreator:
                 If True, saves the plot to disk. Default is False.
 
             folder (str, optional):
-                Folder (relative to self.path) where the plot will be saved. Default is "line_plots/".
+                Folder (relative to self.path) where the plot will be saved. Default is "line_plots".
 
             filename (str, optional):
                 Name of the file to save the plot. Default is "new_plot".
@@ -103,12 +105,16 @@ class InputDataPlotCreator:
         plt.tight_layout()
 
         if save_plot:
-            figure.savefig(f'{self.path}{folder}{filename}')
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
+
         if show_plot:
             plt.show()
         plt.close(figure)
 
-    def create_line_charts_with_index(self, y: list[str], title: str = None, normalize: bool = False, save_plot: bool = False, folder: str = "line_plots/", filename: str = "new_plot", show_plot: bool = False) -> None:
+    def create_line_charts_with_index(self, y: list[str], title: str = None, normalize: bool = False, save_plot: bool = False, folder: str = "line_plots", filename: str = "new_plot", show_plot: bool = False) -> None:
         """
         Plots multiple subplots in a single row, one subplot per column in `y`.
 
@@ -130,7 +136,7 @@ class InputDataPlotCreator:
                 If True, saves the figure to disk. Default is False.
 
             folder (str, optional):
-                Folder (relative to self.path) where the figure will be saved. Default is "line_plots/".
+                Folder (relative to self.path) where the figure will be saved. Default is "line_plots".
 
             filename (str, optional):
                 Name of the file to save the figure. Default is "new_plot".
@@ -159,13 +165,16 @@ class InputDataPlotCreator:
         figure.tight_layout()
 
         if save_plot:
-            figure.savefig(f'{self.path}{folder}{filename}')
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
 
         if show_plot:
             plt.show()
         plt.close(figure)
 
-    def create_correlation_matrix(self, save_plot: bool = False, title: str = None, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrix", show_plot: bool = False) -> None:
+    def create_correlation_matrix(self, save_plot: bool = False, title: str = None, folder: str = "correlation_matrices", filename: str = "new_correlation_matrix", show_plot: bool = False) -> None:
         """
         Generates and displays a correlation heatmap for all numeric columns in the raw DataFrame.
 
@@ -180,7 +189,7 @@ class InputDataPlotCreator:
                 Title to display on the plot. If None, no title is set. Default is None.
 
             folder (str, optional):
-                Folder (relative to self.path) where the plot will be saved. Default is "correlation_matrices/".
+                Folder (relative to self.path) where the plot will be saved. Default is "correlation_matrices".
 
             filename (str, optional):
                 Filename (without extension) to save the heatmap. Default is "new_correlation_matrix".
@@ -197,13 +206,18 @@ class InputDataPlotCreator:
         if title is not None:
             plt.title(title)
         plt.tight_layout()
+
         if save_plot:
-            figure.savefig(f'{self.path}{folder}{filename}')
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
+
         if show_plot:
             plt.show()
         plt.close(figure)
 
-    def create_correlation_matrices(self, save_plot: bool = False, title: str = None, folder: str = "correlation_matrices/", filename: str = "new_correlation_matrices", show_plot: bool = False) -> None:
+    def create_correlation_matrices(self, save_plot: bool = False, title: str = None, folder: str = "correlation_matrices", filename: str = "new_correlation_matrices", show_plot: bool = False) -> None:
         """
         Generates and displays a grid of correlation heatmaps for each month and year combination.
 
@@ -219,7 +233,7 @@ class InputDataPlotCreator:
                 Title to display on the plot. If None, no title is set. Default is None.
 
             folder (str, optional):
-                Folder (relative to self.path) where the figure will be saved. Default is "correlation_matrices/".
+                Folder (relative to self.path) where the figure will be saved. Default is "correlation_matrices".
 
             filename (str, optional):
                 Filename (without extension) to save the figure. Default is "new_correlation_matrices".
@@ -245,7 +259,7 @@ class InputDataPlotCreator:
 
                 sns.heatmap(self.raw_df[(self.raw_df.index.year == year) & (self.raw_df.index.month == month + 1)].corr(), annot=True, cmap="coolwarm", ax=ax, cbar=(i == year_count - 1))
 
-                ax.set_title(f"{self.month_names[month]} {year}", fontsize=10)
+                ax.set_title(f'{self.month_names[month]} {year}', fontsize=10)
 
                 if j < month_count - 1:
                     ax.set_xticklabels([])
@@ -259,13 +273,16 @@ class InputDataPlotCreator:
         plt.tight_layout()
 
         if save_plot:
-            plt.savefig(f"{self.path}{folder}{filename}")
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
 
         if show_plot:
             plt.show()
         plt.close(figure)
 
-    def create_bar_chart(self, function: Callable, feature: str, time_period: str = 'year', normalize: bool = False, save_plot: bool = False, folder: str = "bar_charts/", filename: str = "new_bar_chart", show_plot: bool = False) -> None:
+    def create_bar_chart(self, function: Callable, feature: str, time_period: str = 'year', normalize: bool = False, save_plot: bool = False, folder: str = "bar_charts", filename: str = "new_bar_chart", show_plot: bool = False) -> None:
         """
         Creates a bar chart of an aggregated feature grouped by years or months using a specified function.
 
@@ -293,7 +310,7 @@ class InputDataPlotCreator:
                 If True, saves the plot to disk. Default is False.
 
             folder (str, optional):
-                Folder (relative to self.path) where the plot will be saved. Default is "bar_charts/".
+                Folder (relative to self.path) where the plot will be saved. Default is "bar_charts".
 
             filename (str, optional):
                 Name of the file to save the plot. Default is "new_bar_chart".
@@ -335,19 +352,23 @@ class InputDataPlotCreator:
             aggregated = self._normalize_data(aggregated)
 
         fig, ax = plt.subplots(figsize=(12, 6))
-        aggregated.plot(kind="bar", ax=ax)
-        ax.set_xlabel(time_period.capitalize().replace("_", " "))
+        aggregated.plot(kind='bar', ax=ax)
+        ax.set_xlabel(time_period.capitalize().replace('_', ' '))
         ax.set_ylabel(f'{function.__name__.capitalize()} of {feature}')
         ax.set_title(f'{feature.capitalize()} aggregated by {time_period.replace("_", " ")}')
         plt.tight_layout()
 
         if save_plot:
-            fig.savefig(f'{self.path}{folder}{filename}')
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
+
         if show_plot:
             plt.show()
         plt.close(fig)
 
-    def create_qq_plot(self, x_feature: str, y_feature: str, quantile_count: int, title: str = None, save_plot: bool = False, folder: str = 'qq_plots/', filename: str = 'new_qq_plot', show_plot: bool = False) -> None:
+    def create_qq_plot(self, x_feature: str, y_feature: str, quantile_count: int, title: str = None, save_plot: bool = False, folder: str = 'qq_plots', filename: str = 'new_qq_plot', show_plot: bool = False) -> None:
         """
         Creates a Quantile–Quantile (QQ) plot comparing two features.
 
@@ -375,7 +396,7 @@ class InputDataPlotCreator:
                 If True, saves the plot to disk. Default is False.
 
             folder (str, optional):
-                Folder (relative to self.path) where the plot will be saved. Default is "qq_plots/".
+                Folder (relative to self.path) where the plot will be saved. Default is "qq_plots".
 
             filename (str, optional):
                 Name of the file to save the plot. Default is "new_qq_plot".
@@ -410,13 +431,16 @@ class InputDataPlotCreator:
         plt.tight_layout()
 
         if save_plot:
-            plt.savefig(f"{self.path}{folder}{filename}")
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
 
         if show_plot:
             plt.show()
         plt.close(figure)
 
-    def create_auto_correlation_plot(self, feature: str, lags: int, include_confidence_bounds: bool = True, title: str = None, save_plot: bool = False, folder: str = 'autocorrelation_plots/', filename: str = 'new_autocorrelation_plot', show_plot: bool = False) -> None:
+    def create_auto_correlation_plot(self, feature: str, lags: int, include_confidence_bounds: bool = True, title: str = None, save_plot: bool = False, folder: str = 'autocorrelation_plots', filename: str = 'new_autocorrelation_plot', show_plot: bool = False) -> None:
         """
         Creates an autocorrelation plot for a selected feature over a specified number of lags.
 
@@ -443,7 +467,7 @@ class InputDataPlotCreator:
         save_plot : bool, optional (default=False)
             If True, saves the generated plot to disk.
 
-        folder : str, optional (default='autocorrelation_plots/')
+        folder : str, optional (default='autocorrelation_plots')
             Folder (relative to self.path) where the plot will be saved.
 
         filename : str, optional (default='new_autocorrelation_plot')
@@ -476,11 +500,35 @@ class InputDataPlotCreator:
         plt.tight_layout()
 
         if save_plot:
-            figure.savefig(f"{self.path}{folder}{filename}")
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
 
         if show_plot:
             plt.show()
         plt.close(figure)
+
+    def create_histogram(self, feature: str, bins: int = 30, title: str = None, save_plot: bool = False, folder: str = 'histograms', filename: str = 'new_histogram', show_plot: bool = False) -> None:
+        figure, axis = plt.subplots()
+        axis.hist(self.raw_df[feature], bins=bins, edgecolor='black')
+        axis.set_xlabel(f'{feature.capitalize()}')
+        axis.set_ylabel('Number of observations')
+
+        if title is not None:
+            axis.set_title(title)
+        plt.tight_layout()
+
+        if save_plot:
+            save_dir = os.path.join(self.path, folder)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, f'{filename}.png')
+            plt.savefig(save_path)
+
+        if show_plot:
+            plt.show()
+        plt.close(figure)
+
 
     def _normalize_data(self, column: pd.Series) -> pd.Series:
         """

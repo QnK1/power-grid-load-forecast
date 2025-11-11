@@ -26,8 +26,8 @@ from analysis.model_analysis import ModelPlotCreator
 
 lstm_layers = [64, 32]
 dense_layers = [32, 16]
-sequence_length = 168
-prediction_length = 24
+sequence_length = 4 * 168
+prediction_length = 4 * 24
 model = get_model(lstm_layers, dense_layers, sequence_length, prediction_length, len(FEATURE_COLUMNS), dropout=0.2, recurrent_dropout=0.1)
 predicted_label = 'load'
 epochs = 52
