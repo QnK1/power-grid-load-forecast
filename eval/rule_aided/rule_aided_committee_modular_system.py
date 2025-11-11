@@ -10,7 +10,8 @@ from utils.load_data import load_test_data, load_training_data, DataLoadingParam
 from models.modular_system.modular_system import FEATURE_COLUMNS, get_model
 from models.committee.committee import CommitteeSystem
 from models.rule_aided.base import RuleBasedModel, preprocess_inputs, get_lookup_table
-from eval.helpers import plot_predictions, eval_autoregressive
+from eval.helpers import eval_autoregressive
+from analysis.model_analysis import ModelPlotCreator
 
 
 def prepare_inputs(x: pd.DataFrame):
@@ -43,8 +44,8 @@ if __name__ == "__main__":
             f.write(f'{hour}, {mape}\n')
         f.write(f'total, {mape_total}\n')
     
-    PLOTS_PATH = Path(__file__).parent.parent.parent.resolve() / Path("analysis/plots/model_plots/prediction_plots/rule_aided_committee_modular_system")
+    model_plot_creator = ModelPlotCreator()
     
     _, raw_test = load_test_data(params)
     non_zero_mask = pred[5] != 0.0
-    plot_predictions(raw_test['load'].iloc[non_zero_mask], pred[5][non_zero_mask], MODEL_NAME.replace(".keras", ""), "1h", save_path=PLOTS_PATH)
+    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask], pred[5][non_zero_mask], MODEL_NAME.replace(".keras", ""), 'rule_aided_committee_modular_system', "1h")

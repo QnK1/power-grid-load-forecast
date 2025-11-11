@@ -319,8 +319,6 @@ def _get_previous_day_loads(df, params):
     if params.prev_day_load_values == (0, 0):
         return df
 
-    # --- THIS IS THE FIX ---
-    # We set the date as the index to perform the shift operation correctly.
     df_indexed = df.set_index('date')
     freq_offset = pd.to_datetime(df_indexed.index[1]) - pd.to_datetime(df_indexed.index[0])
     day_offset_steps = int(pd.Timedelta('1D') / freq_offset)
@@ -331,14 +329,11 @@ def _get_previous_day_loads(df, params):
     for i in range(params.prev_day_load_values[0], params.prev_day_load_values[1] + 1):
         col_name = f"load_previous_day_timestamp_{i}"
         new_cols_names.append(col_name)
-        # Shift the 'load' column and store it
         shifted_series = df_indexed['load'].shift(day_offset_steps + i)
         new_cols_data[col_name] = shifted_series.values
 
-    # Create a new DataFrame from the shifted data and add it to the original
     new_cols_df = pd.DataFrame(new_cols_data, index=df.index)
     df = pd.concat([df, new_cols_df], axis=1)
-    # -----------------------
 
     if params.prev_day_load_as_mean:
         mean_col_name = f"prev_day_load_{len(new_cols_names)}_timestamps_mean"
