@@ -58,7 +58,7 @@ def train_rule_aided_model(model_to_wrap: keras.Model, training_data: DataFrame)
 
 if __name__ == "__main__":
     MODEL_STRUCTURE = {
-        'hidden_layers': [5, 9, 12, 18, 22, 25],
+        'hidden_layers': [25, 5],
         'n_models': 10,
     }
     
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     params.include_timeindex = True
     data, raw_data = load_training_data(params)
     
-    submodels = [Modular_system([5, 9, 12, 18, 22, 25])] * 10
+    submodels = [Modular_system(MODEL_STRUCTURE['hidden_layers'])] * MODEL_STRUCTURE['n_models']
     committee = CommitteeSystem(submodels)
     
     model = train_rule_aided_model(committee, data)
