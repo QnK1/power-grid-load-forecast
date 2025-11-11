@@ -220,7 +220,7 @@ def _load_data(params, years):
     df = df.drop('temperature', axis=1)
 
     real_data_df = df.copy()
-    if params.shuffle:
+    if params.shuffle and years != TEST_YEARS:
         real_data_df = shuffle(real_data_df, random_state=LOAD_DATA_RANDOM_STATE) # shuffle the 'real' df the same way as the ml-ready df
 
     # get ml-ready df
@@ -512,7 +512,7 @@ def _get_ml_ready_df(df, params, is_training_data):
     training_df = None
     
     # shuffle data rows
-    if params.shuffle:
+    if params.shuffle and is_training_data:
         df_final = shuffle(df_final, random_state=LOAD_DATA_RANDOM_STATE)
 
     return df_final
