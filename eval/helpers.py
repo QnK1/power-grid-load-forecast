@@ -32,55 +32,80 @@ def eval_autoregressive(model: Model, params: DataLoadingParams, feature_columns
     X, y = test_data[feature_columns], raw_test['load']
     
     lag_indices = [i[0] for i in enumerate(X.columns) if 'load_timestamp' in i[1]]
+    previous_day_lag_indices = [i[0] for i in enumerate(X.columns) if 'load_previous_day_timestamp' in i[1]]
+    previous_day_lag_offsets = [int(i.rsplit('_', 1)[-1]) for i in X.columns if 'load_previous_day_timestamp' in i]
+    
     size = X.shape[0]
     max_startingpoint = size - horizon
     
     base_starting_points = np.array(range(0, max_startingpoint + 1, horizon))
     
+    freqs_in_24h = int(pd.Timedelta('24h') / params.freq)
+    
     mapes = {}
-    pred = {i: np.zeros(size) for i in range(horizon)}
+    pred = {i: np.zeros(size) for i in range(freqs_in_24h)}
     
-    for i in range(horizon):
-        x_copy = X.copy()
-        
-        starting_points = base_starting_points + i
-        
-        current_start = x_copy.index[starting_points[0]].hour
-        
-        for j in range(horizon):
-            current_indices = starting_points + j
-            valid_j_mask = current_indices < size
-            if not np.any(valid_j_mask):
-                break
-            current_indices_valid = current_indices[valid_j_mask]
-            
-            if prepare_inputs is not None:
-                inputs = prepare_inputs(x_copy.iloc[current_indices_valid])
-            else:
-                inputs = x_copy.iloc[current_indices_valid]
-                
-            outputs = model.predict(inputs, verbose=0)
-            outputs_squeezed = np.squeeze(outputs)
-            if outputs_squeezed.ndim == 0:
-                outputs_squeezed = np.array([outputs])
-            
-            curr_pred = decode_ml_outputs(outputs, raw_trainig)
-            
-            for lag_index_number, lag_index_value in enumerate(lag_indices):
-                target_indices = current_indices_valid + lag_index_number + 1
-                valid_target_mask = target_indices < size
-                indices_to_update = target_indices[valid_target_mask]
-                values_to_write = outputs_squeezed[valid_target_mask]
-                
-                if len(indices_to_update) > 0:
-                    x_copy.iloc[indices_to_update, lag_index_value] = values_to_write
-            
-            curr_mape = mean_absolute_percentage_error(y.iloc[current_indices_valid], curr_pred)
-            mapes.setdefault(current_start, []).append(curr_mape)
-            pred[i][current_indices_valid] = np.squeeze(curr_pred)
-            
-            print(f"{i, j} / {horizon, horizon}, {curr_mape}")
+    interleave_gap = horizon + freqs_in_24h
     
+    for k in range(2):
+        start_offset = k * horizon
+        base_starting_points = np.array(range(start_offset, max_startingpoint + 1, interleave_gap))
+        
+        for i in range(freqs_in_24h):
+            x_copy = X.copy()
+            
+            starting_points = base_starting_points + i
+            
+            starting_points = starting_points[starting_points <= max_startingpoint]
+            if len(starting_points) == 0:
+                continue
+            
+            current_start = x_copy.index[starting_points[0]].hour
+            
+            for j in range(horizon):
+                current_indices = starting_points + j
+                valid_j_mask = current_indices < size
+                if not np.any(valid_j_mask):
+                    break
+                current_indices_valid = current_indices[valid_j_mask]
+                
+                if prepare_inputs is not None:
+                    inputs = prepare_inputs(x_copy.iloc[current_indices_valid])
+                else:
+                    inputs = x_copy.iloc[current_indices_valid]
+                    
+                outputs = model.predict(inputs, verbose=0)
+                outputs_squeezed = np.squeeze(outputs)
+                outputs_squeezed = np.atleast_1d(outputs_squeezed)
+                
+                curr_pred = decode_ml_outputs(outputs, raw_trainig)
+                
+                # handle updating previous load values
+                for lag_index_number, lag_index_value in enumerate(lag_indices):
+                    target_indices = current_indices_valid + lag_index_number + 1
+                    valid_target_mask = target_indices < size
+                    indices_to_update = target_indices[valid_target_mask]
+                    values_to_write = outputs_squeezed[valid_target_mask]
+                    
+                    if len(indices_to_update) > 0:
+                        x_copy.iloc[indices_to_update, lag_index_value] = values_to_write
+                
+                # handle updating previous day load values
+                for lag_index_number, (lag_index_value, lag_index_offset) in enumerate(zip(previous_day_lag_indices, previous_day_lag_offsets)):
+                    target_indices = current_indices_valid + (freqs_in_24h + lag_index_offset)
+                    valid_target_mask = target_indices < size
+                    indices_to_update = target_indices[valid_target_mask]
+                    values_to_write = outputs_squeezed[valid_target_mask]
+                    
+                    if len(indices_to_update) > 0:
+                        x_copy.iloc[indices_to_update, lag_index_value] = values_to_write
+                
+                curr_mape = mean_absolute_percentage_error(y.iloc[current_indices_valid], curr_pred)
+                mapes.setdefault(current_start, []).append(curr_mape)
+                pred[i][current_indices_valid] = np.squeeze(curr_pred)
+                
+                print(f"{k, i, j} / {1, freqs_in_24h, horizon}, {curr_mape}")
+        
     
     mean_mapes = {}
     for hour, mape_list in mapes.items():

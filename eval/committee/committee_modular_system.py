@@ -33,8 +33,8 @@ if __name__ == "__main__":
     pred, mapes = eval_autoregressive(model, params, FEATURE_COLUMNS, 24, prepare_inputs)
     mape_total = sum(mapes.values()) / len(mapes.values())
     
-    MODEL_NAME = f'{MODEL_PATH}'.replace(f'{PATH}\\', '')
-    with open(f"{Path(__file__).parent.resolve() / Path('results')}/{MODEL_NAME}", 'w') as f:
+    MODEL_NAME = f'{MODEL_PATH}'.replace(f'{PATH}\\', '').replace(".keras", "")
+    with open(f"{Path(__file__).parent.resolve() / Path('results')}/{MODEL_NAME}.txt", 'w') as f:
         f.write('starting_hour, mape\n')
         for hour, mape in sorted(mapes.items()):
             f.write(f'{hour}, {mape}\n')
@@ -45,4 +45,4 @@ if __name__ == "__main__":
     
     _, raw_test = load_test_data(params)
     non_zero_mask = pred[5] != 0.0
-    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask], pred[5][non_zero_mask], MODEL_NAME.replace(".keras", ""), 'committee_modular_system', "1h")
+    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask], pred[5][non_zero_mask], MODEL_NAME, 'committee_modular_system', "1h")
