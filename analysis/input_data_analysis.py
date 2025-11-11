@@ -351,11 +351,11 @@ class InputDataPlotCreator:
         if normalize:
             aggregated = self._normalize_data(aggregated)
 
-        fig, ax = plt.subplots(figsize=(12, 6))
-        aggregated.plot(kind='bar', ax=ax)
-        ax.set_xlabel(time_period.capitalize().replace('_', ' '))
-        ax.set_ylabel(f'{function.__name__.capitalize()} of {feature}')
-        ax.set_title(f'{feature.capitalize()} aggregated by {time_period.replace("_", " ")}')
+        figure, axis = plt.subplots(figsize=(12, 6))
+        aggregated.plot(kind='bar', ax=axis)
+        axis.set_xlabel(time_period.capitalize().replace('_', ' '))
+        axis.set_ylabel(f'{function.__name__.capitalize()} of {feature}')
+        axis.set_title(f'{feature.capitalize()} aggregated by {time_period.replace("_", " ")}')
         plt.tight_layout()
 
         if save_plot:
@@ -366,7 +366,7 @@ class InputDataPlotCreator:
 
         if show_plot:
             plt.show()
-        plt.close(fig)
+        plt.close(figure)
 
     def create_qq_plot(self, x_feature: str, y_feature: str, quantile_count: int, title: str = None, save_plot: bool = False, folder: str = 'qq_plots', filename: str = 'new_qq_plot', show_plot: bool = False) -> None:
         """
