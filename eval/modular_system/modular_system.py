@@ -10,6 +10,7 @@ import os
 from tensorflow.keras.losses import MeanAbsolutePercentageError
 from tensorflow.keras.models import load_model
 from analysis.model_analysis import ModelPlotCreator
+import multiprocessing
 
 
 FEATURE_COLUMNS = [
@@ -139,7 +140,7 @@ def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_mod
             X_test = X_data_test.iloc[i:stop]
             indexes = time_index_from_freq(X_test.index, freq)
             indexes_tf = tf.convert_to_tensor(indexes, dtype=tf.int32)
-            y_pred = model.predict({'features': X_test, 'model_index': indexes_tf}, verbose=0)
+            y_pred = model.predict({'features': X_test, 'model_index': indexes_tf}, verbose=verbose)
             prev3_load, prev2_load, prev1_load = prev2_load, prev1_load, y_pred.flatten()
             
             model_indexes = time_index_from_freq(X_data_test.index, freq)
@@ -181,10 +182,23 @@ if __name__ == "__main__":
 
     # hiddens = [[5]]
     # epochs = [5,10,15,20]
-    hiddens = [[20,15,10,5], [20,15,10,5,1], [25,20,15,10,5], [25,20,15,10,5,1],
-               [30,25,20,15,10,5], [30,25,20,15,10,5,1], [35,30,25,20,15,10,5], [35,30,25,20,15,10,5,1],
-               [20,5], [25,5], [30,5], [20,5,1], [25,5,1], [30,5,1]]
-    epochs = [10,20,30,40,50,60,70,80,90,100]
+    # hiddens = [[20,15,10,5], [20,15,10,5,1], [25,20,15,10,5], [25,20,15,10,5,1],
+    #            [30,25,20,15,10,5], [30,25,20,15,10,5,1], [35,30,25,20,15,10,5], [35,30,25,20,15,10,5,1],
+    #            [20,5], [25,5], [30,5], [20,5,1], [25,5,1], [30,5,1]]
+    hiddens = [[5,10,15], [5,10,15,20], [5,10,15,20,25], [5,10,15,20,25,30]]
+    epochs = [20,30,40,50,60,70,80]
+    
     for hid in hiddens:
         train_and_evaluate_model(hidden_layer=hid, epochs=epochs, num_models=24, train=True,
-                                 forecast_range=24, verbose=1, plot=True, plot_range=72)
+                                 forecast_range=24, verbose=0, plot=True, plot_range=48)
+    
+
+    # WARNING this might damage processor because of high temperatures
+    # processes = []
+    # for hid in hiddens:
+    #     processes.append(multiprocessing.Process(target=train_and_evaluate_model, args=((hid, epochs, 24, True, 24, 0, True, 72,))))
+    # for p in processes:
+    #     p.start()
+    # for p in processes:
+    #     p.join()
+    # print('Evaluating processes done')

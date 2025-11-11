@@ -9,9 +9,12 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# This list defines the 9 features the model expects.
+# This list defines the 17 features the model expects.
 FEATURE_COLUMNS = [
-    'load',
+    'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
+    'load_previous_day_timestamp_-2', 'load_previous_day_timestamp_-1',
+    'load_previous_day_timestamp_0', 'load_previous_day_timestamp_1',
+    'load_previous_day_timestamp_2',
     'prev_3_temperature_timestamps_mean',
     'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
@@ -115,6 +118,13 @@ def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length
         representing target values for each sequence.
     """
 
+    if len(data) - sequence_length - prediction_length + 1 <= 0:
+        raise ValueError(
+            f'Not enough data to create sequences with sequence_length={sequence_length}'
+            f'and prediction_length={prediction_length}.'
+            f'Data length is {len(data)}.'
+        )
+
     X_data = data[features]
     y_data = data[label]
 
@@ -161,10 +171,11 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
        If True, uses EarlyStopping to monitor validation loss and stop training when
        there is no improvement. Prevents overfitting and restores the best model weights.
 
-   Returns
-   -------
-   None
-       The model is trained and stored in the "models" folder.
+    Returns
+    -------
+    History
+        A Keras History object containing details about the training process,
+        including loss and metrics values for each epoch.
    """
 
     params = DataLoadingParams()

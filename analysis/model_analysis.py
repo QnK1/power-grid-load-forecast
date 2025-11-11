@@ -166,3 +166,79 @@ class ModelPlotCreator:
             plt.show()
 
         plt.close()
+
+    def plot_multiple_predictions(self, y_real: np.ndarray, y_pred: list[np.ndarray], model_names: list[str], folder: str, freq: str, save_plot: bool = True, show_plot: bool = True) -> None:
+        """
+        Plots and optionally saves a comparison of real values versus multiple prediction outputs from different models.
+
+        This function visualizes the true target values together with predictions from several models on a single plot,
+        enabling direct comparison of model performance over the prediction horizon.
+
+        Parameters
+        ----------
+        y_real : np.ndarray
+            Array of real target values with shape (prediction_length,).
+            Represents the ground truth across the prediction horizon.
+
+        y_pred : list[np.ndarray]
+            A list of prediction arrays, each with shape (prediction_length,).
+            Each element corresponds to predictions from a different model.
+
+        model_names : list[str]
+            A list of model names, each associated with a corresponding prediction array in `y_pred`.
+            Used for plot labeling and filename generation.
+
+        folder : str
+            Subfolder (relative to the class-level `save_path`) where the plot will be stored.
+            Useful for grouping plots by model set, experiment type, data split, or algorithm family.
+            Example: "baseline", "deep_models", "best_models"
+
+        freq : str
+            Label describing the frequency of the prediction horizon (e.g., "h" for hourly,
+            "15min" for 15-minute resolution). Displayed on the X-axis label.
+
+        save_plot : bool, optional, default=True
+            If True, saves the generated plot to disk.
+
+        show_plot : bool, optional, default=True
+            If True, displays the generated plot on screen.
+
+        Returns
+        -------
+        None
+            The function creates a comparison plot (and may save it), but does not return any value.
+
+        Notes
+        -----
+        - The saved file is stored under the path:
+          `<save_path>/prediction_plots/<folder>/<model1-model2-...-modelN>_prediction.png`.
+        - The function assumes that all prediction arrays in `y_pred` share the same prediction horizon length as `y_real`.
+        """
+
+        save_path = os.path.join(self.save_path, 'prediction_plots/', folder)
+
+        if len(y_pred) != len(model_names):
+            raise ValueError('There should be as many prediction arrays as there are model names.')
+
+        if save_plot:
+            os.makedirs(save_path, exist_ok=True)
+
+        plt.figure(figsize=(8, 4))
+        plt.plot(y_real, label='Real', color='blue')
+        for pred, name in zip(y_pred, model_names):
+            plt.plot(pred, label=name.capitalize())
+        plt.title(f'Predictions for multiple models')
+        plt.xlabel(f'Prediction Horizon [{freq}]')
+        plt.ylabel('Load [MW]')
+        plt.legend()
+        plt.tight_layout()
+
+        if save_plot:
+            joined_names = '-'.join(model_names)
+            file_path = os.path.join(save_path, f'{joined_names}_prediction.png')
+            plt.savefig(file_path)
+
+        if show_plot:
+            plt.show()
+
+        plt.close()

@@ -291,7 +291,7 @@ def _get_date_numbers(df, params):
 
 def _resample(df, params):
     df = df.set_index("date")
-    df = df.resample(params.freq).sum()
+    df = df.resample(params.freq).mean()
     df = df.reset_index()
     
     df = df[df['load'] != 0.0]
