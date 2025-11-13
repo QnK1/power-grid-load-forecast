@@ -59,7 +59,7 @@ if __name__ == "__main__":
     horizon_indices = {i: range(i, len(raw_test['load'].iloc[non_zero_mask]), 24) for i in range(24)}
     
     horizon_mapes = [
-        mean_absolute_percentage_error(raw_test['load'].iloc[non_zero_mask].iloc[horizon_indices[i]], pred[BEST_START][non_zero_mask][horizon_indices[i]])
+        100 * mean_absolute_percentage_error(raw_test['load'].iloc[non_zero_mask].iloc[horizon_indices[i]], pred[BEST_START][non_zero_mask][horizon_indices[i]])
         for i in range(24)
     ]
     
