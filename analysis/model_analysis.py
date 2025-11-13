@@ -233,7 +233,7 @@ class ModelPlotCreator:
 
         if save_plot:
             joined_names = '-'.join(model_names)
-            file_path = os.path.join(save_path, f'{joined_names}_prediction.png')
+            file_path = os.path.join(save_path, f'{joined_names}_predictions.png')
             plt.savefig(file_path)
 
         if show_plot:
@@ -288,7 +288,7 @@ class ModelPlotCreator:
 
         if save_plot:
             joined_names = '-'.join(model_names)
-            file_path = os.path.join(save_path, f'{joined_names}_prediction.png')
+            file_path = os.path.join(save_path, f'{joined_names}_average_mape_comparisson.png')
             plt.savefig(file_path)
 
         if show_plot:
@@ -341,7 +341,7 @@ class ModelPlotCreator:
         plt.tight_layout()
 
         if save_plot:
-            file_path = os.path.join(save_path, f'{model_name}_prediction.png')
+            file_path = os.path.join(save_path, f'{model_name}_mape_over_horizon.png')
             plt.savefig(file_path)
 
         if show_plot:
