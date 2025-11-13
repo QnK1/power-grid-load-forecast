@@ -52,7 +52,7 @@ def recursive_20h_from(df_ml, start_ts, model, feature_cols):
 
 
 def evaluate_recursive(
-    model_path="models/single_mlp/trained/single_mlp_25neurons_20epochs.keras",
+    model_path="models/single_mlp/models/single_mlp_25neurons_20epochs.keras",
     start_hour=1,
 ):
     params = DataLoadingParams()
@@ -114,6 +114,6 @@ def evaluate_recursive(
 
 
 if __name__ == "__main__":
-    evaluate_recursive(model_path="models/single_mlp/trained/single_mlp_25neurons_15epochs.keras",
+    evaluate_recursive(model_path="models/single_mlp/models/single_mlp_25neurons_15epochs.keras",
                        start_hour=1,
     )

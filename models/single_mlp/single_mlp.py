@@ -147,7 +147,7 @@ if __name__ == "__main__":
         learning_rate=1e-3,
     )
 
-    save_path = f"models/single_mlp/trained/single_mlp_{hidden_units}neurons_{epochs}epochs.keras"
+    save_path = f"models/single_mlp/models/single_mlp_{hidden_units}neurons_{epochs}epochs.keras"
     from pathlib import Path
     Path(save_path).parent.mkdir(parents=True, exist_ok=True)
 

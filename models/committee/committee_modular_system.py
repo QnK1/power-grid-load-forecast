@@ -61,6 +61,7 @@ if __name__ == "__main__":
     
     params = DataLoadingParams()
     params.include_timeindex = True
+    # params.include_is_dst = True
     data, raw_data = load_training_data(params)
     
     
