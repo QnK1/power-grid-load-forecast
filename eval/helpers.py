@@ -47,6 +47,8 @@ def eval_autoregressive(model: Model, params: DataLoadingParams, feature_columns
     
     interleave_gap = horizon + freqs_in_24h
     
+    # the outer 'k' loop is a hack to enable batch processing of inputs without interference
+    # between them caused by updating previous day load values
     for k in range(2):
         start_offset = k * horizon
         base_starting_points = np.array(range(start_offset, max_startingpoint + 1, interleave_gap))

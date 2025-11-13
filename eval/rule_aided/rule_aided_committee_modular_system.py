@@ -26,10 +26,11 @@ def prepare_inputs(x: pd.DataFrame):
 
 if __name__ == "__main__":
     PATH = Path(__file__).parent.parent.parent.resolve() / Path('models/rule_aided/models') 
-    MODEL_PATH = PATH / Path('rule_aided_committee_modular_system_[25, 5]_10.keras')
+    MODEL_PATH = PATH / Path('rule_aided_committee_modular_system_[15, 15]_10.keras')
     
     params = DataLoadingParams()
     params.include_timeindex = True
+    # params.include_is_dst = True
     params.shuffle = False
     
     model = load_model(MODEL_PATH)

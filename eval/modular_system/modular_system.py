@@ -82,6 +82,7 @@ def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_mod
     params.prev_day_temp_as_mean = True
     params.interpolate_empty_values = True
     params.include_timeindex = True
+    params.include_is_dst = True
     train_data, raw_train_data = load_training_data(params)
     train_data = train_data.sort_index()
     train_data = train_data.iloc[3:]          # deleting first 3 rows where load of prev hours is the same

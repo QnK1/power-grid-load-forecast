@@ -58,12 +58,13 @@ def train_rule_aided_model(model_to_wrap: keras.Model, training_data: DataFrame)
 
 if __name__ == "__main__":
     MODEL_STRUCTURE = {
-        'hidden_layers': [25, 5],
+        'hidden_layers': [15, 15],
         'n_models': 10,
     }
     
     params = DataLoadingParams()
     params.include_timeindex = True
+    # params.include_is_dst = True
     data, raw_data = load_training_data(params)
     
     submodels = [Modular_system(MODEL_STRUCTURE['hidden_layers'])] * MODEL_STRUCTURE['n_models']

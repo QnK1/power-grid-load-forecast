@@ -21,28 +21,29 @@ class DataLoadingParams:
     df, raw_df = load_data(params)
 
     Attributes:
-        freq: A frequency string (must be in the pandas freq string format) to resample the data by.
-        shuffle: bool, whether to shuffle data rows (the default is True).
-        prev_load_values: int, how many previous load timestamps to include in each data row.
+        freq (str): A frequency string (must be in the pandas freq string format) to resample the data by.
+        shuffle (bool): Whether to shuffle data rows (the default is True).
+        prev_load_values (int): How many previous load timestamps to include in each data row.
                             Use 0 to not include previous load values.
-        prev_day_load_values: tuple[int, int], what window of previous day load timestamps to include in each row,
+        prev_day_load_values (tuple[int, int]): What window of previous day load timestamps to include in each row,
                             for example (-1, 1) means that the load on the previous day at the same timestamp
                             and for 2 neighbouring ones should be included in each data row.
                             Use (0, 0) to not include previous day load values.
-        prev_load_as_mean: If True, the previous load values are aggreagted to a mean, if False, they are stored separately.
-        prev_day_load_as_mean: If True, the previous day load values are aggregated to a mean, if False, they are stored separately.
-        prev_temp_values: int, how many previous temperature timestamps to include in each data row.
+        prev_load_as_mean (bool): If True, the previous load values are aggreagted to a mean, if False, they are stored separately.
+        prev_day_load_as_mean (bool): If True, the previous day load values are aggregated to a mean, if False, they are stored separately.
+        prev_temp_values (int): How many previous temperature timestamps to include in each data row.
                             Use 0 to not include previous temperature values.
-        prev_day_temp_values: tuple[int, int], what window of previous day temperature timestamps to include in each row,
+        prev_day_temp_values (tuple[int, int]): What window of previous day temperature timestamps to include in each row,
                             for example (-1, 1) means that the temperature on the previous day at the same timestamp
                             and for 2 neighbouring ones should be included in each data row.
                             Use (0, 0) to not include previous day temperature values.
-        prev_temp_as_mean: If True, the previous temperature values are aggregated to a mean, if False, they are stored separately.
-        prev_day_temp_as_mean: If True, the previous day temperature values are aggregated to a mean, if False, they are stored separately.
-        interpolate_empty_values: bool, whether rows at the beginning of the DataFrame, that don't have previous values,
+        prev_temp_as_mean (bool): If True, the previous temperature values are aggregated to a mean, if False, they are stored separately.
+        prev_day_temp_as_mean (bool): If True, the previous day temperature values are aggregated to a mean, if False, they are stored separately.
+        interpolate_empty_values (bool): Whether rows at the beginning of the DataFrame, that don't have previous values,
                             should be filled with mean values (True) or dropped (False).
-        include_timeindex: Whether to include a feature that represents the number of days since the first day that appeared
+        include_timeindex (bool): Whether to include a feature that represents the number of days since the first day that appeared
                             in the training data. The default value of include_timeindex is False.
+        include_is_dst (bool): Whether to include a column that indicates which time is in use (winter/summer).                    
     """
     freq: str = "1h"
     shuffle: bool = True
@@ -56,6 +57,7 @@ class DataLoadingParams:
     prev_day_temp_as_mean: bool = True
     interpolate_empty_values: bool = True
     include_timeindex: bool = False
+    include_is_dst: bool = False
     
 
 def load_training_data(params: DataLoadingParams) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -153,7 +155,7 @@ def load_raw_data(years: list[int], months: list[int]) -> pd.DataFrame:
 TRAINING_YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
 TEST_YEARS = [2023, 2024]
 
-def _load_data(params, years):
+def _load_data(params: DataLoadingParams, years: list[int]):
     try:
         pd.tseries.frequencies.to_offset(params.freq)
     except ValueError as e:
@@ -187,6 +189,10 @@ def _load_data(params, years):
     
     # remove daylight savings related nans
     df = _remove_daylight_savings_nans(df, params, years)
+    
+    # add is_dst column
+    if params.include_is_dst:
+        df = _add_is_dst_feature(df, params)
 
     # resample data
     df = _resample(df, params)
@@ -218,6 +224,11 @@ def _load_data(params, years):
 
     # drop temporary 'temperature' column
     df = df.drop('temperature', axis=1)
+    
+    # move is_dst to the back for potential safety
+    if params.include_is_dst:
+        col_to_move = df.pop('is_dst')
+        df['is_dst'] = col_to_move
 
     real_data_df = df.copy()
     if params.shuffle and years != TEST_YEARS:
@@ -463,6 +474,22 @@ def _add_timeindex_feature(df, params, is_training_data):
     return df
 
 
+def _add_is_dst_feature(df, params):
+    df_date_copy = df['date'].copy()
+    localized_dates = df['date'].dt.tz_localize(
+        'Europe/Berlin', 
+        ambiguous='infer', 
+        nonexistent='shift_forward'
+    )
+    dst_deltas = localized_dates.apply(lambda ts: ts.dst())
+    df['is_dst'] = (dst_deltas != pd.Timedelta(0)).astype(int)
+    
+    # to be 100% sure the dates are not localized
+    df['date'] = df_date_copy
+    
+    return df
+
+
 def _get_ml_ready_df(df, params, is_training_data):
     # apply sine-cosine transformation for cyclical features
     df['hour_of_day_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / df['hour_of_day'].max())
@@ -489,7 +516,7 @@ def _get_ml_ready_df(df, params, is_training_data):
     
     cols_to_scale = [col for col in df.columns if col not in 
                         ['hour_of_day_sin', 'hour_of_day_cos', 'day_of_week_sin', 'day_of_week_cos',
-                            'day_of_year_sin', 'day_of_year_cos', 'date', 'timestamp_day']]
+                            'day_of_year_sin', 'day_of_year_cos', 'date', 'timestamp_day', 'is_dst']]
 
     scaler.fit(training_df[cols_to_scale])
     scaled_values = scaler.transform(df[cols_to_scale])

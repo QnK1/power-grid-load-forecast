@@ -26,6 +26,7 @@ if __name__ == "__main__":
     
     params = DataLoadingParams()
     params.include_timeindex = True
+    # params.include_is_dst = True
     params.shuffle = False
     
     model = load_model(MODEL_PATH)
