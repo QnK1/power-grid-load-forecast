@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from keras.src.optimizers import Adam
 from models.helpers import create_sequences
 from utils.load_data import load_training_data, DataLoadingParams
@@ -185,3 +184,48 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
     model.save(model_path)
 
     return history
+
+def get_model_name(convolution_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, epochs: int, batch_size: int, freq: str) -> str:
+    """
+    Generates a standardized model name string based on CNN1D architecture and training configuration.
+
+    This naming convention ensures models can be easily identified when saved to disk.
+
+    Parameters
+    ----------
+    convolution_layers : list[int]
+        List of filter counts for each Conv1D layer, in order of appearance.
+        Example: [32, 16] will be represented as "CONV_32-16".
+
+    dense_layers : list[int]
+        List of neuron counts for each Dense layer used after Conv1D layers (excluding the output layer).
+        If empty, "DENSE_NONE" will be used in the name.
+
+    sequence_length : int
+        Number of past timesteps used as model input (window size).
+
+    prediction_length : int
+        Number of future timesteps the model predicts.
+
+    epochs : int
+        Number of training epochs used for this model configuration.
+
+    batch_size : int
+        Batch size used during training.
+
+    freq : str
+        Data frequency used for training (e.g., "1h" for hourly data).
+
+    Returns
+    -------
+    str
+        A descriptive model name, for example:
+        "CONV_32-16_DENSE_16-8_168_24_50_32_1h"
+        meaning:
+        Conv1D layers: [32, 16], Dense layers: [16, 8], seq_len=168, pred_len=24, epochs=50, batch_size=32, freq=1h
+    """
+
+    convolution_layers_string = '-'.join(map(str, convolution_layers))
+    dense_layers_string = '-'.join(map(str, dense_layers))
+
+    return f'CONV_{convolution_layers_string}_DENSE_{dense_layers_string}_{sequence_length}_{prediction_length}_{epochs}_{batch_size}_{freq}'
