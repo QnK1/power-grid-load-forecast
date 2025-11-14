@@ -1,5 +1,5 @@
 from utils.load_data import load_test_data, load_training_data, DataLoadingParams, decode_ml_outputs
-from models.lstm.lstm import create_sequences
+from models.helpers import create_sequences
 import numpy as np
 from keras.models import load_model
 from pathlib import Path
