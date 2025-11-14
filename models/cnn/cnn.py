@@ -18,7 +18,7 @@ FEATURE_COLUMNS = [
     'timestamp_day'
 ]
 
-def get_model(convolution_layers: list[int], kernel_sizes: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, features_count: int, pooling_type: str = 'mean', pool_size: int = 2, spatial_dropout: float = 0.1) -> keras.Sequential:
+def get_model(convolution_layers: list[int], kernel_sizes: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, features_count: int, pooling_type: str = 'average', pool_size: int = 2, spatial_dropout: float = 0.1) -> keras.Sequential:
     """
     Builds and compiles a 1D Convolutional Neural Network (CNN) for time series forecasting.
 
@@ -47,9 +47,9 @@ def get_model(convolution_layers: list[int], kernel_sizes: list[int], dense_laye
     features_count : int
         Number of features (input variables) per timestep.
 
-    pooling_type : str, optional (default='mean')
+    pooling_type : str, optional (default='average')
         Type of pooling to apply after Conv1D layers. Options:
-        - 'mean' : MeanPooling1D
+        - 'average' : AveragePooling1D
         - 'max' : MaxPooling1D
         - 'none': no pooling
 
@@ -74,8 +74,8 @@ def get_model(convolution_layers: list[int], kernel_sizes: list[int], dense_laye
     if len(convolution_layers) != len(kernel_sizes):
         raise ValueError('Each convolution layer should have exactly one kernel size assigned to it.')
 
-    if pooling_type not in ['mean', 'max', 'none']:
-        raise ValueError('Available types of pooling are: mean, max, none.')
+    if pooling_type not in ['average', 'max', 'none']:
+        raise ValueError('Available types of pooling are: average, max, none.')
 
     model = keras.Sequential()
     model.add(layers.Input(shape=(sequence_length, features_count)))
@@ -90,8 +90,8 @@ def get_model(convolution_layers: list[int], kernel_sizes: list[int], dense_laye
         if spatial_dropout > 0:
             model.add(layers.SpatialDropout1D(rate=spatial_dropout))
 
-        if pooling_type == 'mean':
-            model.add(layers.MeanPooling1D(pool_size=pool_size))
+        if pooling_type == 'average':
+            model.add(layers.AveragePooling1D(pool_size=pool_size))
 
         elif pooling_type == 'max':
             model.add(layers.MaxPooling1D(pool_size=pool_size))
