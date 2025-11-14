@@ -1,4 +1,5 @@
 import sklearn.utils
+from keras.src.optimizers import Adam
 
 from utils.load_data import load_training_data, DataLoadingParams
 from tensorflow import keras
@@ -77,7 +78,8 @@ def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: 
 
     model.add(layers.Dense(prediction_length))
 
-    model.compile(optimizer='adam', loss=MeanSquaredError(), metrics=['mse'])
+    optimizer = Adam(learning_rate=0.001, clipnorm=1.0)
+    model.compile(optimizer=optimizer, loss=MeanSquaredError(), metrics=['mse'])
     return model
 
 def create_sequences(data: pd.DataFrame, sequence_length: int, prediction_length: int, features: list[str], label: str, shuffle: bool = True) -> tuple[np.ndarray, np.ndarray]:
