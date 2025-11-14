@@ -12,10 +12,7 @@ from pathlib import Path
 
 # This list defines the 17 features the model expects.
 FEATURE_COLUMNS = [
-    'load_timestamp_-1', 'load_timestamp_-2', 'load_timestamp_-3',
-    'load_previous_day_timestamp_-2', 'load_previous_day_timestamp_-1',
-    'load_previous_day_timestamp_0', 'load_previous_day_timestamp_1',
-    'load_previous_day_timestamp_2',
+    'load',
     'prev_3_temperature_timestamps_mean',
     'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
@@ -247,4 +244,4 @@ def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_len
         LSTM layers: [64, 32], Dense layers: [16, 8], seq_len=24, pred_len=6, epochs=50
     """
 
-    return f"LSTM_{"-".join(map(str, lstm_layers))}_DENSE_{"-".join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}_{freq}"
+    return f"LSTM_{'-'.join(map(str, lstm_layers))}_DENSE_{'-'.join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}_{freq}"
