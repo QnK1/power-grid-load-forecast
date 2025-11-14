@@ -53,7 +53,7 @@ def get_model(lstm_layers: list[int], dense_layers: list[int], sequence_length: 
     """
 
     if len(lstm_layers) == 0:
-        raise ValueError("There should be at least one LSTM layer in a LSTM Network")
+        raise ValueError('There should be at least one LSTM layer in a LSTM Network')
 
     model = keras.Sequential()
     model.add(layers.Input(shape=(sequence_length, features_count)))
@@ -123,13 +123,13 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
 
     data, raw_data = load_training_data(params)
     current_folder = Path(__file__).parent
-    model_folder = current_folder / "models"
+    model_folder = current_folder / 'models'
     model_folder.mkdir(exist_ok=True)
 
     X_train, y_train = create_sequences(data, sequence_length, prediction_length, FEATURE_COLUMNS, predicted_label)
 
     early_stop = keras.callbacks.EarlyStopping(
-        monitor="val_loss",
+        monitor='val_loss',
         min_delta=0.001,
         patience=5,
         restore_best_weights=True
@@ -143,7 +143,7 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
         callbacks = [early_stop] if early_stopping else [],
         verbose=1)
 
-    model_path = model_folder / f"{file_name}.keras"
+    model_path = model_folder / f'{file_name}.keras'
     model.save(model_path)
 
     return history
@@ -182,4 +182,7 @@ def get_model_name(lstm_layers: list[int], dense_layers: list[int], sequence_len
         LSTM layers: [64, 32], Dense layers: [16, 8], seq_len=24, pred_len=6, epochs=50
     """
 
-    return f"LSTM_{'-'.join(map(str, lstm_layers))}_DENSE_{'-'.join(map(str, dense_layers))}_{sequence_length}_{prediction_length}_{epochs}_{freq}"
+    lstm_layers_string = '-'.join(map(str, lstm_layers))
+    dense_layers_string = '-'.join(map(str, dense_layers))
+
+    return f'LSTM_{lstm_layers_string}_DENSE_{dense_layers_string}_{sequence_length}_{prediction_length}_{epochs}_{freq}'
