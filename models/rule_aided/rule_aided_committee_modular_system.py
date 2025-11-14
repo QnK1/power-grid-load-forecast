@@ -58,7 +58,7 @@ def train_rule_aided_model(model_to_wrap: keras.Model, training_data: DataFrame)
 
 if __name__ == "__main__":
     MODEL_STRUCTURE = {
-        'hidden_layers': [15, 15],
+        'hidden_layers': [25, 5],
         'n_models': 10,
     }
     

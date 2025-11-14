@@ -26,7 +26,7 @@ def prepare_inputs(x: pd.DataFrame):
 
 if __name__ == "__main__":
     PATH = Path(__file__).parent.parent.parent.resolve() / Path('models/rule_aided/models') 
-    MODEL_PATH = PATH / Path('rule_aided_committee_modular_system_[15, 15]_10.keras')
+    MODEL_PATH = PATH / Path('rule_aided_committee_modular_system_[25, 5]_10.keras')
     
     params = DataLoadingParams()
     params.include_timeindex = True
@@ -47,6 +47,22 @@ if __name__ == "__main__":
     
     model_plot_creator = ModelPlotCreator()
     
+    BEST_START = 7
+    
     _, raw_test = load_test_data(params)
-    non_zero_mask = pred[5] != 0.0
-    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask], pred[5][non_zero_mask], MODEL_NAME, 'rule_aided_committee_modular_system', "1h")
+    non_zero_mask = pred[BEST_START] != 0.0
+    
+    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask].iloc[0:24].to_numpy(), pred[BEST_START][non_zero_mask][0:24], f'{MODEL_NAME}-Ex1', 'rule_aided_committee_modular_system', "1h")
+    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask].iloc[1000:1024].to_numpy(), pred[BEST_START][non_zero_mask][1000:1024], f'{MODEL_NAME}-Ex2', 'rule_aided_committee_modular_system', "1h")
+    model_plot_creator.plot_predictions(raw_test['load'].iloc[non_zero_mask].iloc[500:524].to_numpy(), pred[BEST_START][non_zero_mask][500:524], f'{MODEL_NAME}-Ex3', 'rule_aided_committee_modular_system', "1h")
+    
+    horizon_indices = {i: range(i, len(raw_test['load'].iloc[non_zero_mask]), 24) for i in range(24)}
+    
+    horizon_mapes = [
+        100 * mean_absolute_percentage_error(raw_test['load'].iloc[non_zero_mask].iloc[horizon_indices[i]], pred[BEST_START][non_zero_mask][horizon_indices[i]])
+        for i in range(24)
+    ]
+    
+    model_plot_creator.plot_mape_over_horizon(MODEL_NAME, horizon_mapes, "rule_aided_committee_modular_system")
+    
+    
