@@ -4,7 +4,7 @@ from analysis.model_analysis import ModelPlotCreator
 convolution_layers = [64]
 kernel_sizes = [3]
 dense_layers = [32, 16]
-sequence_length = 168
+sequence_length = 2 * 168
 prediction_length = 24
 
 model = get_model(convolution_layers, kernel_sizes, dense_layers, sequence_length, prediction_length, len(FEATURE_COLUMNS))
