@@ -140,3 +140,94 @@ def get_model(convolution_layers: list[int], kernel_sizes: list[int], lstm_layer
     optimizer = Adam(learning_rate=0.001, clipnorm=1.0)
     model.compile(optimizer=optimizer, loss=MeanSquaredError(), metrics=['mse'])
     return model
+
+def train_model(model: keras.Sequential, sequence_length: int, prediction_length: int, predicted_label: str, epochs: int, batch_size: int = 32, freq: str = "1h", file_name: str = "cnn_lstm_model", early_stopping: bool = True) -> History:
+    """
+    Trains a hybrid CNN-LSTM model using historical time-series data.
+
+    The training pipeline performs the following steps:
+    1. Loads and preprocesses time-series data according to the selected frequency.
+    2. Converts the dataset into supervised sequences via `create_sequences`,
+       producing:
+         - X of shape (num_samples, sequence_length, num_features)
+         - y of shape (num_samples, prediction_length)
+    3. Trains the provided model using the specified batch size and number of epochs.
+    4. Optionally applies EarlyStopping with validation split to prevent overfitting.
+    5. Saves the trained model in `.keras` format.
+    6. Returns the training history for analysis and visualization.
+
+    Parameters
+    ----------
+    model : keras.Sequential
+        A compiled Keras model created with `get_model`,
+        containing convolutional, recurrent or dense layers.
+
+    sequence_length : int
+        Number of past timesteps used as input for each training sample.
+
+    prediction_length : int
+        Number of future timesteps the model predicts simultaneously.
+
+    predicted_label : str
+        Name of the target column to be forecasted (e.g., "load").
+
+    epochs : int
+        Maximum number of training epochs.
+
+    batch_size : int, optional (default=32)
+        Number of samples processed in each training batch.
+
+    freq : str, optional (default="1h")
+        Data sampling frequency used when loading the training dataset.
+
+    file_name : str, optional (default="cnn_lstm_model")
+        Base name of the saved model file (`<file_name>.keras`).
+
+    early_stopping : bool, optional (default=True)
+        Enables EarlyStopping on validation loss:
+        - monitor = "val_loss"
+        - min_delta = 0.001
+        - patience = 5
+        - restore_best_weights = True
+        Uses a 10% validation split when enabled.
+
+    Returns
+    -------
+    History
+        Keras History object containing loss and validation loss per epoch.
+    """
+
+
+    params = DataLoadingParams()
+    params.freq = freq
+    params.interpolate_empty_values = True
+    params.shuffle = False
+    params.include_timeindex = True
+
+    data, raw_data = load_training_data(params)
+    current_folder = Path(__file__).parent
+    model_folder = current_folder / 'models'
+    model_folder.mkdir(exist_ok=True)
+
+    X_train, y_train = create_sequences(data, sequence_length, prediction_length, FEATURE_COLUMNS, predicted_label)
+
+    early_stop = keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        min_delta=0.001,
+        patience=5,
+        restore_best_weights=True
+    )
+
+    history = model.fit(
+        X_train,
+        y_train,
+        epochs=epochs,
+        batch_size=batch_size,
+        validation_split = 0.1 if early_stopping else None,
+        callbacks = [early_stop] if early_stopping else [],
+        verbose=1)
+
+    model_path = model_folder / f'{file_name}.keras'
+    model.save(model_path)
+
+    return history
