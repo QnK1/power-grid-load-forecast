@@ -231,3 +231,67 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
     model.save(model_path)
 
     return history
+
+def get_model_name(convolution_layers: list[int], lstm_layers: list[int], dense_layers: list[int], sequence_length: int, prediction_length: int, epochs: int, batch_size: int, freq: str) -> str:
+    """
+    Generates a standardized model name string based on CNN-LSTM architecture
+    and training configuration.
+
+    The naming convention ensures that saved models can be easily identified
+    and compared, as the name encodes all relevant hyperparameters.
+
+    Parameters
+    ----------
+    convolution_layers : list[int]
+        List of filter counts for each Conv1D layer, in the order they appear.
+        Example: [32, 16] → "CONV_32-16".
+
+    lstm_layers : list[int]
+        List of unit counts for each LSTM layer.
+        Example: [64, 32] → "LSTM_64-32".
+
+    dense_layers : list[int]
+        List of neuron counts for each Dense layer after the recurrent block
+        (excluding the final output layer).
+        If empty, it is represented as "DENSE_" with no values.
+
+    sequence_length : int
+        Number of timesteps used as input for the model (historical window).
+
+    prediction_length : int
+        Number of future steps predicted by the model.
+
+    epochs : int
+        Number of epochs used during training.
+
+    batch_size : int
+        Mini-batch size used during training.
+
+    freq : str
+        Data sampling frequency (e.g., "1h" for hourly, "15min" for quarter-hourly).
+
+    Returns
+    -------
+    str
+        A descriptive model identifier encoding the full architecture and
+        training configuration.
+
+        Example output:
+        "CONV_32-16_LSTM_64-32_DENSE_16-8_168_24_50_32_1h"
+
+        Meaning:
+        - Conv1D filters: [32, 16]
+        - LSTM units: [64, 32]
+        - Dense units: [16, 8]
+        - sequence_length = 168
+        - prediction_length = 24
+        - epochs = 50
+        - batch_size = 32
+        - frequency = "1h"
+    """
+
+    convolution_layers_string = '-'.join(map(str, convolution_layers))
+    lstm_layers_string = '-'.join(map(str, lstm_layers))
+    dense_layers_string = '-'.join(map(str, dense_layers))
+
+    return f'CONV_{convolution_layers_string}_LSTM_{lstm_layers_string}_DENSE_{dense_layers_string}_{sequence_length}_{prediction_length}_{epochs}_{batch_size}_{freq}'
