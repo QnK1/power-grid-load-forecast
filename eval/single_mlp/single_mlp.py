@@ -5,6 +5,9 @@ from utils.load_data import (
     load_training_data, load_test_data, DataLoadingParams, decode_ml_outputs
 )
 from models.single_mlp.single_mlp import load_model
+import random
+from analysis.model_analysis import ModelPlotCreator
+
 
 LAG_COLS = ["load_timestamp_-1", "load_timestamp_-2", "load_timestamp_-3"]
 
@@ -54,6 +57,7 @@ def recursive_20h_from(df_ml, start_ts, model, feature_cols):
 def evaluate_recursive(
     model_path="models/single_mlp/models/single_mlp_25neurons_20epochs.keras",
     start_hour=1,
+    plot = False
 ):
     params = DataLoadingParams()
     df_train_ml, df_train_raw = load_training_data(params)
@@ -111,9 +115,46 @@ def evaluate_recursive(
     out_df.to_csv(out_path)
     print(f"\n💾 Zapisano: {out_path}")
 
+    # ==========================
+    # 3 losowe przykłady (dni)
+    # ==========================
+
+    if not plot:
+        return 
+    
+    if not start_points:
+        print("\n⚠️ Brak dostępnych startów do narysowania.")
+        return
+
+    n_examples = min(3, len(start_points))
+    chosen_starts = random.sample(start_points, n_examples)
+
+    plotter = ModelPlotCreator()
+
+    print(f"\n📈 Rysuję {n_examples} losowe przykłady prognozy (po 20 godzin każde):")
+    for i, ts in enumerate(chosen_starts):
+        yt_std, yp_std = recursive_20h_from(df_test_ml, ts, model, feature_cols)
+
+        yt = decode_ml_outputs(yt_std.reshape(-1, 1), df_train_raw).reshape(-1)
+        yp = decode_ml_outputs(yp_std.reshape(-1, 1), df_train_raw).reshape(-1)
+
+        print(f" → przykład {i+1}: start {ts} ({ts.day_name()})")
+
+        plotter.plot_predictions(
+            y_real=yt,
+            y_pred=yp,
+            model_name=f"{model_name}_example_{i+1}",
+            folder=f"single_mlp",
+            freq="h",
+            save_plot=True,
+            show_plot=False
+        )
+
+
 
 
 if __name__ == "__main__":
-    evaluate_recursive(model_path="models/single_mlp/models/single_mlp_25neurons_15epochs.keras",
+    evaluate_recursive(model_path="models/single_mlp/models/single_mlp_25neurons_20epochs.keras",
                        start_hour=1,
+                       plot=True
     )
