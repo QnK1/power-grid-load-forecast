@@ -10,6 +10,8 @@ from sklearn.metrics import mean_absolute_percentage_error
 
 FEATURE_COLUMNS = [
     'load',
+    'prev_3_temperature_timestamps_mean',
+    'prev_day_temperature_5_timestamps_mean',
     'hour_of_day_sin', 'hour_of_day_cos',
     'day_of_week_sin', 'day_of_week_cos',
     'day_of_year_sin', 'day_of_year_cos',
@@ -35,7 +37,7 @@ def build_model(units: int, sequence_length: int = 24, prediction_length:int = 2
     """
     model = keras.Sequential([
         layers.Input(shape=(sequence_length, features_count)),
-        layers.SimpleRNN(units, activation='relu'),
+        layers.SimpleRNN(units, activation='tanh'),
         layers.Dense(prediction_length)
     ])
 
@@ -115,7 +117,7 @@ def train_model(model: keras.Sequential, sequence_length: int, prediction_length
         batch_size=32,
         verbose=1
     )
-    file_name = f"rnn_model_{units}_{epochs}.keras"
+    file_name = f"rnn_model_NEURONS-{units}_EPOCHS-{epochs}_SEQUENCE-{sequence_length}_FREQ-{freq}.keras"
     model_path = model_folder / file_name
     model.save(model_path)
     return history

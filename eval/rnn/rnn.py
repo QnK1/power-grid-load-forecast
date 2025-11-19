@@ -63,4 +63,4 @@ def model_evaluate(sequence_length:int, prediction_length:int,file_name:str="rnn
             f.write(f'{step}, {mape_step}\n')
         f.write(f'total, {mape_total}\n')
 
-    return y_pred, y_true
+    return y_pred, y_true, mape_per_step
