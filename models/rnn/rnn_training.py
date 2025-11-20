@@ -12,4 +12,3 @@ units = 64
 #Build, train and evaluate model
 model = build_model(units, sequence_length,24, feature_count)
 train_model(model, sequence_length, 24,epochs, units, label=predicted_label)
-
