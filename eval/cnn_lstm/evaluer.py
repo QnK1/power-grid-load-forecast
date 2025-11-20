@@ -1,0 +1,12 @@
+from eval.cnn_lstm.cnn_lstm import evaluate_models
+from analysis.model_analysis import ModelPlotCreator
+
+# Temporary file to perform model evaluation
+
+file_name = ''
+y_real, y_pred = evaluate_models(168, 24, file_name, freq="1h")
+
+plot_creator = ModelPlotCreator()
+examples = [6, 1000, 4255, 6789, 7171, 11111, 16161]
+for i, example in enumerate(examples):
+    plot_creator.plot_predictions(y_real[example], y_pred[example],  f'{file_name}-Ex{i+1}', "cnn_lstm", freq='1h', save_plot=True, show_plot=True)
