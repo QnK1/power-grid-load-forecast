@@ -11,7 +11,7 @@ class Seq2SeqRepeatVectorModel(Model):
     without initializing its initial state, as opposed to classical NLP seq2seq models,
     which use the context vector as the initial hidden + cell state of the decode, running an autoregressive loop.
     """
-    def __init__(self, prediction_length: int, encoder_layers: list[int], decoder_layers: list[int], bidirectional: bool, **kwargs):
+    def __init__(self, prediction_length: int, encoder_layers: list[int], decoder_layers: list[int], bidirectional: bool, dropout, **kwargs):
         """Initializes a Seq2Seq 'RepeatVector' model.
 
         Args:
@@ -22,11 +22,15 @@ class Seq2SeqRepeatVectorModel(Model):
                         Creates two decoder layers: 64 units -> 128 units.
             bidirectional (bool): Whether the model should use bidirectional LSTM layers.
                                     Each of the directions contains half of the layer's LSTM cells.
+            dropout (float): Dropout percentage to apply in LSTM layers.
         """
         super(Seq2SeqRepeatVectorModel, self).__init__(**kwargs)
         
         self.prediction_length = prediction_length
         self.bidirectional = bidirectional
+        self.decoder_layers = decoder_layers
+        self.encoder_layers = encoder_layers
+        self.dropout = dropout
         
         self.encoder_layers_list = []
         for i, units in enumerate(encoder_layers):
@@ -34,11 +38,11 @@ class Seq2SeqRepeatVectorModel(Model):
             
             if self.bidirectional:
                 self.encoder_layers_list.append(
-                    Bidirectional(LSTM(units // 2, return_sequences=not is_last_layer), merge_mode='concat')
+                    Bidirectional(LSTM(units // 2, return_sequences=not is_last_layer, dropout=dropout), merge_mode='concat')
                 )
             else:
                 self.encoder_layers_list.append(
-                    LSTM(units, return_sequences=not is_last_layer)
+                    LSTM(units, return_sequences=not is_last_layer, dropout=dropout)
                 )
         
         self.encoder = Sequential(self.encoder_layers_list)
@@ -49,11 +53,11 @@ class Seq2SeqRepeatVectorModel(Model):
         for i, units in enumerate(decoder_layers):
             if self.bidirectional:
                 self.decoder_layers_list.append(
-                    Bidirectional(LSTM(units // 2, return_sequences=True), merge_mode='concat')
+                    Bidirectional(LSTM(units // 2, return_sequences=True, dropout=dropout), merge_mode='concat')
                 )
             else:
                 self.decoder_layers_list.append(
-                    LSTM(units, return_sequences=True)
+                    LSTM(units, return_sequences=True, dropout=dropout)
                 )
         
         self.decoder = Sequential(self.decoder_layers_list)
@@ -75,9 +79,10 @@ class Seq2SeqRepeatVectorModel(Model):
         config = super().get_config()
         config.update({
             "prediction_length": self.prediction_length,
-            "encoder_layers": self.encoder_layers_config,
-            "decoder_layers": self.decoder_layers_config,
+            "encoder_layers": self.encoder_layers,
+            "decoder_layers": self.decoder_layers,
             "bidirectional": self.bidirectional,
+            "dropout": self.dropout,
         })
         return config
 
