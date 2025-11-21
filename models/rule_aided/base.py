@@ -8,7 +8,17 @@ from utils.get_easter_days import get_easter_days_for_years
 
 @keras.saving.register_keras_serializable()
 class RuleBasedModel(tf.keras.Model):
-    def __init__(self, model_to_wrap, lookup_table, values_tensor, **kwargs):
+    """A rule-aided model, which uses 'glued' predefined target trends as predictions for special dates
+    and the wrapped model for all other dates.
+    """
+    def __init__(self, model_to_wrap: tf.keras.Model, lookup_table: tf.lookup.StaticHashTable, values_tensor: tf.Tensor, **kwargs):
+        """Initializes a rule-aided model.
+
+        Args:
+            model_to_wrap (tf.keras.Model): A trained model to use for base predictions.
+            lookup_table (tf.lookup.StaticHashTable): A lookup table of special days and indices pointing to values in the values_tensor.
+            values_tensor (tf.Tensor): A 2-element tensor that holds the day's mean target value and the previous day's mean target value.
+        """
         super(RuleBasedModel, self).__init__(**kwargs)
         self.base_model = model_to_wrap
         self.lookup_table = lookup_table
