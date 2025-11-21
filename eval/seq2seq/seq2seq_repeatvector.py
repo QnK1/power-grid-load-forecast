@@ -40,6 +40,25 @@ def evaluate_model(sequence_length: int, prediction_length: int, model_name: str
     y_real = decode_ml_outputs(y_test, raw_data)
     y_pred = decode_ml_outputs(np.squeeze(predictions, -1), raw_data)
     
+    mapes = []
+    for start in range(y_real.shape[0]):
+        real = y_real[start, :]
+        pred = y_pred[start, :]
+        
+        mask = real != 0
+        
+        if np.any(mask):
+            mape = np.mean(np.abs((real[mask] - pred[mask]) / real[mask])) * 100
+        else:
+            mape = np.nan
+
+        mapes.append(mape)
+    
+    mape_per_starting_hour = []
+    for i in range(24):
+        indices = list(range(i, len(mapes), 24))
+        mape_per_starting_hour.append(np.mean(np.array(mapes)[indices]))
+    
     mape_per_step = []
     
     for step in range(y_real.shape[1]):
@@ -59,9 +78,9 @@ def evaluate_model(sequence_length: int, prediction_length: int, model_name: str
     mape_total = np.nanmean(mape_per_step)
 
     with open(f'{Path(__file__).parent}/results/eval_results_{model_name}.txt', 'w') as f:
-        f.write(f'step, mape_1h\n')
-        for step, mape_step in enumerate(mape_per_step):
-            f.write(f'{step}, {mape_step}\n')
+        f.write(f'starting_hour, mape_1h\n')
+        for strat, mape_start in enumerate(mape_per_starting_hour):
+            f.write(f'{strat}, {mape_start}\n')
         f.write(f'total, {mape_total}\n')
     
     plot_creator = ModelPlotCreator()

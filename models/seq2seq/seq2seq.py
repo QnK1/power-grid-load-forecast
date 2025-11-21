@@ -38,11 +38,11 @@ class Seq2SeqRepeatVectorModel(Model):
             
             if self.bidirectional:
                 self.encoder_layers_list.append(
-                    Bidirectional(LSTM(units // 2, return_sequences=not is_last_layer, dropout=dropout), merge_mode='concat')
+                    Bidirectional(LSTM(units // 2, return_sequences=not is_last_layer, dropout=dropout, recurrent_dropout=dropout), merge_mode='concat')
                 )
             else:
                 self.encoder_layers_list.append(
-                    LSTM(units, return_sequences=not is_last_layer, dropout=dropout)
+                    LSTM(units, return_sequences=not is_last_layer, dropout=dropout, recurrent_dropout=dropout)
                 )
         
         self.encoder = Sequential(self.encoder_layers_list)
@@ -53,11 +53,11 @@ class Seq2SeqRepeatVectorModel(Model):
         for i, units in enumerate(decoder_layers):
             if self.bidirectional:
                 self.decoder_layers_list.append(
-                    Bidirectional(LSTM(units // 2, return_sequences=True, dropout=dropout), merge_mode='concat')
+                    Bidirectional(LSTM(units // 2, return_sequences=True, dropout=dropout, recurrent_dropout=dropout), merge_mode='concat')
                 )
             else:
                 self.decoder_layers_list.append(
-                    LSTM(units, return_sequences=True, dropout=dropout)
+                    LSTM(units, return_sequences=True, dropout=dropout, recurrent_dropout=dropout)
                 )
         
         self.decoder = Sequential(self.decoder_layers_list)

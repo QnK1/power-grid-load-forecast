@@ -41,6 +41,7 @@ def train_seq2seq_repeatvector(sequence_length: int, prediction_length: int, enc
     early_stopping = keras.callbacks.EarlyStopping(
         monitor='val_loss', 
         patience=5,
+        min_delta=0.001,
         verbose=1,
         restore_best_weights=True 
     )
@@ -61,9 +62,9 @@ if __name__ == "__main__":
     MODEL_PARAMS = {
         'sequence_length': 168,
         'prediction_length': 24,
-        'encoder_layers': [32, 32],
-        'decoder_layers': [32, 32],
-        'bidirectional': True,
+        'encoder_layers': [32],
+        'decoder_layers': [32],
+        'bidirectional': False,
         'dropout': 0.2,
     }
     
