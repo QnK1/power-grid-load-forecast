@@ -6,7 +6,7 @@ from utils.load_data import load_training_data, DataLoadingParams
 predicted_label = 'load'
 sequence_length = 48
 feature_count = len(FEATURE_COLUMNS)
-epochs = 20
+epochs = 15
 units = 64
 
 #Build, train and evaluate model
