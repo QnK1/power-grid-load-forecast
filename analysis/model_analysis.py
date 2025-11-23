@@ -282,13 +282,13 @@ class ModelPlotCreator:
         plt.bar(model_names, average_mape)
         plt.xlabel('Model')
         plt.ylabel('Average MAPE')
-        plt.xticks(rotation=45)
+        plt.title('Comparison of average MAPE')
+        plt.xticks(rotation=60)
 
         plt.tight_layout()
 
         if save_plot:
-            joined_names = '-'.join(model_names)
-            file_path = os.path.join(save_path, f'{joined_names}_average_mape_comparisson.png')
+            file_path = os.path.join(save_path, 'average_mape_comparisson.png')
             plt.savefig(file_path)
 
         if show_plot:
