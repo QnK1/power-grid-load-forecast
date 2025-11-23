@@ -19,6 +19,7 @@ In this project we aim to replicate the results of the paper [Bak, M., & Bieleck
 ## Procject's conclusion
 Here are the final results of average MAPE score for our models as well as the conclusions we've reached. For a more detailed version check out the `documentation`.
 ### Average MAPE
+![MAPE Comparison](analysis/plots/model_plots/overall_comparison/average_mape_comparisson.png)
 ### Conclusions
 - All models achieved single-digit MAPE values, which is the same order of magnitude as those that were reached by systems described in the paper we were using as our base.
 - Models achieve better results for the first few data points in the prediction horizon, which is to be expected due to them having more "fresh" data to work with.
