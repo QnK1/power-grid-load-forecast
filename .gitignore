@@ -306,3 +306,6 @@ models/committee/models/
 
 # rule-aided models
 models/rule_aided/models/
+
+# seq2seq models
+models/seq2seq/models/
