@@ -1,7 +1,20 @@
 # Power grid load forecasting
 
 ## Introduction
+### Goal
 In this project we aim to replicate the results of the paper [Bak, M., & Bielecki, A. (2007). Neural systems for short-term forecasting of electric power load. In B. Ribeiro, B. Beliczynski, A. Dz ielinski, & M. Iwanowski (Eds.), ADAPTIVE AND NATURAL COMPUTING ALGORITHMS, PT 2 (Vol. 4432, p. 133). Springer Nature.](https://link-1springer-1com-1nyztljwx006c.wbg2.bg.agh.edu.pl/book/10.1007/978-3-540-71629-7), which explores neural network–based methods for short-term power grid load prediction. In addition to reproducing the published results, we attempt to develop and evaluate a custom forecasting approach to compare its performance against the original models.
+
+### Models
+- **MLP** - a simple Multi-Layer Perceptron, the simplest model used in this project.
+- **Modular Neural System** - a system of 24 separate MLPs, each one trained to predict one
+specific hour out of the 24-hour horizon.
+- **Committee Neural System** - an ensemble system encapsulating multiple Modular Systems and averaging their outputs.
+- **Rule-Aided Neural System** - uses predefined rules to make predictions for special holidays. For normal days, predictions of the Committee Neural System are used.
+- **Convolutional Neural Network** - a CNN with 1D convolutional layers.
+- **Recurrent Neural Network** - a classic Recurrent Neural Network architecture.
+- **LSTM Recurrent Neural Network** - a common way to try and improve on vanilla RNN's predictions.
+- **CNN-LSTM Hybrid** - a system combining consecutive Convolutional and LSTM layers.
+- **Seq2Seq Encoder-Decoder LSTM** - a model comprising an LSTM-based encoder and decoder, adopting an architecture originally developed for NLP tasks.
 
 ## Project structure
 - `analysis` - module containing classes and methods used for data and model performance visualization, as well as the images of generated plots
@@ -14,9 +27,8 @@ In this project we aim to replicate the results of the paper [Bak, M., & Bieleck
 ## Running the project
 - Install Python 3.12.4.
 - Run `pip install -r requirements.txt` to install all the necessary libraries.
-- Currently our project does not have any dedicated interface for training, evaluation or plot creation. Methods responsible for those are called from temporary .py files like `trainer.py` or `evaluer.py`. We are planning on adding an actual UI to this project in the future
 
-## Procject's conclusion
+## Results
 Here are the final results of average MAPE score for our models as well as the conclusions we've reached. For a more detailed version check out the `documentation`.
 ### Average MAPE
 ![MAPE Comparison](analysis/plots/model_plots/overall_comparison/average_mape_comparisson.png)
