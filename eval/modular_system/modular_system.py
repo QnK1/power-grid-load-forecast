@@ -52,7 +52,7 @@ def time_index_from_freq(timestamp, freq):
     return index
 
 def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_models: int = 24, train = True,
-                             forecast_range = 24, verbose=0, plot=False, plot_range=24):
+                             forecast_range = 24, verbose=0, plot=False, plot_range=24, plot_horizon=False):
     """
     Function for creating and training models with desired hidden layers, epochs and frequency. For example:
     train_and_evaluate_models(hidden_layers = [[15, 20, 25]], epochs = [40, 50], freq = "1h", train = True, forecast_range = 20)
@@ -83,10 +83,13 @@ def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_mod
     params.interpolate_empty_values = True
     params.include_timeindex = True
     params.include_is_dst = True
+    params.shuffle = False
     train_data, raw_train_data = load_training_data(params)
     train_data = train_data.sort_index()
     train_data = train_data.iloc[3:]          # deleting first 3 rows where load of prev hours is the same
     train_data = train_data.sample(frac=1)
+
+    train_data.index = time_index_from_freq(train_data.index, freq)
     
 
     project_folder = Path(__file__).parent.parent.parent
@@ -98,11 +101,18 @@ def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_mod
         epoch_done = 0
         model = Modular_system(hidden_layers=hidden_layer, num_models=num_models)
         model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mse', 'mape'])
-        indexes = time_index_from_freq(train_data.index, freq)
-        indexes_tf = tf.convert_to_tensor(indexes, dtype=tf.int32)
+        
         for epoch in sorted(epochs):
-            model.fit({'features': train_data[FEATURE_COLUMNS], 'model_index': indexes_tf},
-                    train_data['load'], epochs=(epoch-epoch_done), verbose=verbose, batch_size=32)  
+            for index_value, freq_df in train_data.groupby(level=0):
+                indexes = freq_df.index
+                indexes_tf = tf.convert_to_tensor(indexes, dtype=tf.int32)
+                callbacks_list = [keras.callbacks.EarlyStopping(patience=10, restore_best_weights=True)]
+                model.fit({'features': freq_df[FEATURE_COLUMNS], 'model_index': indexes_tf},
+                        freq_df['load'],
+                        epochs=(epoch-epoch_done),
+                        verbose=verbose,
+                        batch_size=32,
+                        callbacks=callbacks_list)  
             model.save(model_folder / f'modular_system_{hidden_str}_{epoch}_{freq}.keras')
             epoch_done = epoch
         print('Models trained!')
@@ -163,6 +173,7 @@ def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_mod
                 mape = np.mean(np.abs(y_real - y_pred) / (np.abs(y_real) + 1e-6) * 100)
                 f.write(f"{i}, {mape}\n")
         if plot:
+            print('Plotting predictions...')
             plot_creator = ModelPlotCreator()
             reals = np.array(reals).reshape(forecast_range, -1).T.flatten()
             preds = np.array(preds).reshape(forecast_range, -1).T.flatten()
@@ -173,11 +184,37 @@ def train_and_evaluate_model(hidden_layer: list[int], epochs: list[int], num_mod
                     y_real=reals[i*forecast_range : (i+1)*forecast_range], 
                     y_pred=preds[i*forecast_range : (i+1)*forecast_range], 
                     model_name=f'modular_system_{hidden_str}_{epoch}_{freq}_{i}',
-                    folder=f'modular_system/model_{hidden_str}_{epoch}',
+                    folder=f'modular_system/model_{hidden_str}_{epoch}_{freq}',
                     freq=freq,
                     save_plot=True,
                     show_plot=False
                 )
+        if plot_horizon:
+            print('Plotting MAPE over horizon...')
+            plot_creator = ModelPlotCreator()
+            reals = np.array(reals).reshape(forecast_range, -1).T.flatten()
+            preds = np.array(preds).reshape(forecast_range, -1).T.flatten()
+            reals = decode_ml_outputs(reals.reshape(-1, 1), raw_train_data).flatten()
+            preds = decode_ml_outputs(preds.reshape(-1, 1), raw_train_data).flatten()
+            horizons = np.zeros(24)
+            data_length = len(reals) // (24*24)
+            for i in range(data_length):
+                for hour in range(24):
+                    horizons[hour] += np.abs(reals[i*24*24+hour] - preds[i*24*24+hour]) / (np.abs(reals[i*24*24+hour]) + 1e-6) * 100
+            horizons /= data_length
+            plot_creator.plot_mape_over_horizon(
+                model_name=f'model_{hidden_str}_{epoch}',
+                mape_values=list(horizons),
+                folder=f'modular_system/model_{hidden_str}',
+                save_plot=True,
+                show_plot=False
+            )
+                    
+                
+
+
+
+
 
 if __name__ == "__main__":
 
@@ -185,13 +222,28 @@ if __name__ == "__main__":
     # epochs = [5,10,15,20]
     # hiddens = [[20,15,10,5], [20,15,10,5,1], [25,20,15,10,5], [25,20,15,10,5,1],
     #            [30,25,20,15,10,5], [30,25,20,15,10,5,1], [35,30,25,20,15,10,5], [35,30,25,20,15,10,5,1],
-    #            [20,5], [25,5], [30,5], [20,5,1], [25,5,1], [30,5,1]]
-    hiddens = [[5,10,15], [5,10,15,20], [5,10,15,20,25], [5,10,15,20,25,30]]
-    epochs = [20,30,40,50,60,70,80]
+    #            , [25,5], [30,5], [20,5,1], [25,5,1], [30,5,1]]
+    # hiddens = [[5,10,15], [5,10,15,20], [5,10,15,20,25], [5,10,15,20,25,30]]
+    hiddens = [[25,5]]
+    epochs = [20,25,30,35,40,45,50,55,60]
+    # epochs = [70]
+    # hid1 = [20,5]
+    # hid2 = [20,15,10,5]
+    # hid3 = [25,5]
+    # hid4 = [30,5]
     
     for hid in hiddens:
         train_and_evaluate_model(hidden_layer=hid, epochs=epochs, num_models=24, train=True,
-                                 forecast_range=24, verbose=0, plot=True, plot_range=48)
+                                 forecast_range=24, verbose=1, plot=False, plot_range=48, plot_horizon=False)
+    # train_and_evaluate_model(hidden_layer=hid1, epochs=[30], num_models=24, train=False,
+    #                             forecast_range=24, verbose=0, plot=False, plot_range=48, plot_horizon=True)
+    # train_and_evaluate_model(hidden_layer=hid2, epochs=[50], num_models=24, train=False,
+    #                             forecast_range=24, verbose=0, plot=True, plot_range=48, plot_horizon=True)
+    # train_and_evaluate_model(hidden_layer=hid3, epochs=[50], num_models=24, train=False,
+    #                             forecast_range=24, verbose=0, plot=True, plot_range=48, plot_horizon=True)
+    # train_and_evaluate_model(hidden_layer=hid4, epochs=[70], num_models=24, train=False,
+    #                             forecast_range=24, verbose=0, plot=True, plot_range=48, plot_horizon=True)
+
     
 
     # WARNING this might damage processor because of high temperatures

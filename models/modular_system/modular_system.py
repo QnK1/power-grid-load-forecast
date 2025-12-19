@@ -63,7 +63,13 @@ class Modular_system(keras.Model):
         indices_to_gather = tf.stack([batch_indices, H_index], axis=1)
         final_output = tf.gather_nd(stacked_outputs, indices_to_gather)
         return final_output
-        
+
+early_stop = EarlyStopping(
+    monitor='val_loss', 
+    patience=10, 
+    restore_best_weights=True
+)
+callbacks_list = [early_stop]
 
 def get_model(hidden_layers: list[int]):
     """Function for creating model with desired hidden layers."""
@@ -73,5 +79,7 @@ def get_model(hidden_layers: list[int]):
         model.add(layers.Dense(layer, activation='relu'))
         # model.add(layers.Dropout(0.2))
     model.add(layers.Dense(1))
-    model.compile(optimizer='adam', loss=MeanAbsolutePercentageError(), metrics=['mae', 'mse', 'mape'])
+    model.compile(optimizer='adam',
+                  loss=MeanAbsolutePercentageError(),
+                  metrics=['mae', 'mse', 'mape'])
     return model
